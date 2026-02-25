@@ -14,9 +14,16 @@ The solution consists of one frontend, one REST orchestrator, and three gRPC bac
 
 ## 2) Architecture Diagram
 
-![Architecture diagram](/docs/images/dummy.png)
+![Architecture diagram](/docs/images/architecture.png)
 
 - **Description**:
+  - Frontend serves the UI on `http://localhost:8080`.
+  - Orchestrator exposes a REST endpoint `POST /checkout` on `http://localhost:8081`.
+  - Orchestrator calls three internal gRPC services inside the Docker Compose network:
+    - fraud_detection (gRPC, port `50051`)
+    - transaction_verification (gRPC, port `50052`)
+    - suggestions (gRPC, port `50053`)
+  - Services communicate using Docker Compose service names (e.g., `fraud_detection:50051`).
 
 ## 3) System Diagram (Execution Flow)
 
