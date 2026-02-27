@@ -27,9 +27,16 @@ The solution consists of one frontend, one REST orchestrator, and three gRPC bac
 
 ## 3) System Diagram (Execution Flow)
 
-![System diagram](/docs/images/dummy.png)
+![System diagram](/docs/images/systemdiagram.png)
 
 - **Description**:
+  - User clicks "Submit Order" button
+  - Frontend sends POST /checkout to Orchestrator
+  - Orchestrator receives request and spawns 3 worker threads
+  - Threads call fraud detection, transaction verification, and suggestions in parallel
+  - Orchestrator waits for all results
+  - Decision: reject if fraud or invalid else approve and sugest
+  - Orchestrator sends REST response back to frontend
 
 ## 4) Design Decisions
 
