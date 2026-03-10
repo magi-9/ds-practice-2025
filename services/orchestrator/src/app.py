@@ -3,12 +3,17 @@ import sys
 import json
 import grpc
 import logging
-import threading
+import uuid
+
+from concurrent.futures import ThreadPoolExecutor
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s"
+)
 log = logging.getLogger("orchestrator")
 
 # Import gRPC generated stubs 
@@ -48,6 +53,38 @@ def mask_sensitive_data(data):
     return masked
 
 
+def summarize_order(data):
+    """
+    Build a log-safe order summary.
+    """
+    if not isinstance(data, dict):
+        return {"has_payload": False}
+
+    items = data.get("items") or []
+    total_quantity = 0
+    for item in items:
+        try:
+            total_quantity += int(item.get("quantity", 0))
+        except (TypeError, ValueError, AttributeError):
+            continue
+
+    user = data.get("user") or {}
+    credit_card = data.get("creditCard") or {}
+    card_number = str(credit_card.get("number", ""))
+
+    return {
+        "item_count": len(items),
+        "total_quantity": total_quantity,
+        "has_user_name": bool(user.get("name")),
+        "has_user_contact": bool(user.get("contact")),
+        "card_suffix": card_number[-4:] if card_number else None,
+    }
+
+
+def get_request_id():
+    return request.headers.get("X-Request-ID") or uuid.uuid4().hex[:8]
+
+
 def call_fraud_detection(order_dict):
     """
     Calls fraud_detection gRPC service and returns (fraud_detected: bool, reason: str)
@@ -84,6 +121,92 @@ def call_suggestions(order_dict):
         ]
 
 
+def run_fraud_detection(order_dict, request_id):
+    log.info("[%s] Calling fraud_detection", request_id)
+    try:
+        fraud_detected, fraud_reason = call_fraud_detection(order_dict)
+        result = {"detected": fraud_detected, "reason": fraud_reason, "error": None}
+        log.info(
+            "[%s] fraud_detection completed: detected=%s reason=%s",
+            request_id,
+            fraud_detected,
+            fraud_reason,
+        )
+        return result
+    except grpc.RpcError as e:
+        log.error(
+            "[%s] fraud_detection gRPC error: code=%s details=%s",
+            request_id,
+            e.code(),
+            e.details(),
+        )
+        return {
+            "detected": True,
+            "reason": "Fraud detection service unavailable",
+            "error": "SERVICE_UNAVAILABLE",
+        }
+    except Exception as e:
+        log.exception("[%s] fraud_detection unexpected error: %s", request_id, e)
+        return {
+            "detected": True,
+            "reason": "Fraud detection service error",
+            "error": "SERVICE_ERROR",
+        }
+
+
+def run_transaction_verification(order_dict, request_id):
+    log.info("[%s] Calling transaction_verification", request_id)
+    try:
+        is_valid, reason = call_transaction_verification(order_dict)
+        result = {"valid": is_valid, "reason": reason, "error": None}
+        log.info(
+            "[%s] transaction_verification completed: valid=%s reason=%s",
+            request_id,
+            is_valid,
+            reason,
+        )
+        return result
+    except grpc.RpcError as e:
+        log.error(
+            "[%s] transaction_verification gRPC error: code=%s details=%s",
+            request_id,
+            e.code(),
+            e.details(),
+        )
+        return {
+            "valid": False,
+            "reason": "Transaction verification service unavailable",
+            "error": "SERVICE_UNAVAILABLE",
+        }
+    except Exception as e:
+        log.exception("[%s] transaction_verification unexpected error: %s", request_id, e)
+        return {
+            "valid": False,
+            "reason": "Transaction verification service error",
+            "error": "SERVICE_ERROR",
+        }
+
+
+def run_suggestions(order_dict, request_id):
+    log.info("[%s] Calling suggestions", request_id)
+    try:
+        books = call_suggestions(order_dict)
+        result = {"books": books, "error": None}
+        log.info("[%s] suggestions completed: books=%s", request_id, len(books))
+        return result
+    except grpc.RpcError as e:
+        log.error(
+            "[%s] suggestions gRPC error: code=%s details=%s",
+            request_id,
+            e.code(),
+            e.details(),
+        )
+        return {"books": [], "error": "SERVICE_UNAVAILABLE"}
+    except Exception as e:
+        log.exception("[%s] suggestions unexpected error: %s", request_id, e)
+        return {"books": [], "error": "SERVICE_ERROR"}
+
+
 @app.route("/", methods=["GET"])
 def index():
     # simple health check endpoint
@@ -92,7 +215,8 @@ def index():
 
 @app.route("/checkout", methods=["POST"])
 def checkout():
-    log.info(f"Received checkout request - Content-Type: {request.content_type}")
+    request_id = get_request_id()
+    log.info("[%s] Received checkout request - Content-Type: %s", request_id, request.content_type)
     
     # Parse JSON safely
     request_data = request.get_json(silent=True)
@@ -100,10 +224,15 @@ def checkout():
         try:
             request_data = json.loads(request.data.decode("utf-8"))
         except Exception as e:
-            log.error(f"Failed to parse JSON: {e}")
+            log.error("[%s] Failed to parse JSON: %s", request_id, e)
             request_data = None
 
-    log.info(f"Parsed request (masked): {mask_sensitive_data(request_data)}")
+    log.info(
+        "[%s] Parsed request (masked): %s | summary=%s",
+        request_id,
+        mask_sensitive_data(request_data),
+        summarize_order(request_data),
+    )
     
     if request_data is None:
         return jsonify({"error": {"code": "INVALID_JSON", "message": "Invalid or missing JSON body"}}), 400
@@ -123,65 +252,18 @@ def checkout():
     if not credit_card or not isinstance(credit_card, dict):
         return jsonify({"error": {"code": "MISSING_CREDIT_CARD", "message": "creditCard information is required"}}), 400
 
-    log.info(f"Request validation passed - {len(items)} items")
+    log.info("[%s] Request validation passed - %s items", request_id, len(items))
 
-    # Prepare shared storage for thread results
-    results = {}
-    
-    # Define worker functions that store results in the shared dict
-    def worker_fraud_detection():
-        log.info("Thread: Starting fraud detection")
-        try:
-            fraud_detected, fraud_reason = call_fraud_detection(request_data)
-            results['fraud'] = {'detected': fraud_detected, 'reason': fraud_reason, 'error': None}
-            log.info(f"Thread: Fraud detection completed - detected={fraud_detected}")
-        except grpc.RpcError as e:
-            log.error(f"Thread: Fraud detection gRPC error - {e.code()}: {e.details()}")
-            results['fraud'] = {'detected': True, 'reason': 'Fraud detection service unavailable', 'error': 'SERVICE_UNAVAILABLE'}
-        except Exception as e:
-            log.error(f"Thread: Fraud detection unexpected error - {e}")
-            results['fraud'] = {'detected': True, 'reason': 'Fraud detection service error', 'error': 'SERVICE_ERROR'}
-    
-    def worker_transaction_verification():
-        log.info("Thread: Starting transaction verification")
-        try:
-            is_valid, reason = call_transaction_verification(request_data)
-            results['transaction'] = {'valid': is_valid, 'reason': reason, 'error': None}
-            log.info(f"Thread: Transaction verification completed - valid={is_valid}")
-        except grpc.RpcError as e:
-            log.error(f"Thread: Transaction verification gRPC error - {e.code()}: {e.details()}")
-            results['transaction'] = {'valid': False, 'reason': 'Transaction verification service unavailable', 'error': 'SERVICE_UNAVAILABLE'}
-        except Exception as e:
-            log.error(f"Thread: Transaction verification unexpected error - {e}")
-            results['transaction'] = {'valid': False, 'reason': 'Transaction verification service error', 'error': 'SERVICE_ERROR'}
-    
-    def worker_suggestions():
-        log.info("Thread: Starting suggestions")
-        try:
-            books = call_suggestions(request_data)
-            results['suggestions'] = {'books': books, 'error': None}
-            log.info(f"Thread: Suggestions completed - {len(books)} books")
-        except grpc.RpcError as e:
-            log.error(f"Thread: Suggestions gRPC error - {e.code()}: {e.details()}")
-            results['suggestions'] = {'books': [], 'error': 'SERVICE_UNAVAILABLE'}
-        except Exception as e:
-            log.error(f"Thread: Suggestions unexpected error - {e}")
-            results['suggestions'] = {'books': [], 'error': 'SERVICE_ERROR'}
-    
-    # Create worker threads
-    thread_fraud = threading.Thread(target=worker_fraud_detection, name="FraudThread")
-    thread_transaction = threading.Thread(target=worker_transaction_verification, name="TransactionThread")
-    thread_suggestions = threading.Thread(target=worker_suggestions, name="SuggestionsThread")
-    
-    log.info("Starting all worker threads")
-    thread_fraud.start()
-    thread_transaction.start()
-    thread_suggestions.start()
-    
-    thread_fraud.join()
-    thread_transaction.join()
-    thread_suggestions.join()
-    log.info("All threads completed")
+    log.info("[%s] Dispatching backend requests via ThreadPoolExecutor", request_id)
+    with ThreadPoolExecutor(max_workers=3, thread_name_prefix="checkout-worker") as executor:
+        futures = {
+            'fraud': executor.submit(run_fraud_detection, request_data, request_id),
+            'transaction': executor.submit(run_transaction_verification, request_data, request_id),
+            'suggestions': executor.submit(run_suggestions, request_data, request_id),
+        }
+        results = {name: future.result() for name, future in futures.items()}
+
+    log.info("[%s] All backend calls completed", request_id)
     
     # Extract results from shared dict
     fraud_data = results.get('fraud', {})
@@ -198,7 +280,15 @@ def checkout():
     suggested_books = suggestions_data.get('books', [])
     suggestions_error = suggestions_data.get('error')
     
-    log.info(f"Results - Fraud: {fraud_detected} ({fraud_reason}), Transaction: {transaction_valid} ({transaction_reason}), Suggestions: {len(suggested_books)} books")
+    log.info(
+        "[%s] Results - Fraud: %s (%s), Transaction: %s (%s), Suggestions: %s books",
+        request_id,
+        fraud_detected,
+        fraud_reason,
+        transaction_valid,
+        transaction_reason,
+        len(suggested_books),
+    )
 
     # Check if any critical service failed
     if fraud_error or transaction_error:
@@ -208,7 +298,7 @@ def checkout():
         if transaction_error:
             error_details.append("transaction_verification")
         
-        log.error(f"Critical services unavailable: {', '.join(error_details)}")
+        log.error("[%s] Critical services unavailable: %s", request_id, ', '.join(error_details))
         return jsonify({
             "error": {
                 "code": "SERVICE_UNAVAILABLE",
@@ -220,9 +310,14 @@ def checkout():
     approved = (not fraud_detected) and transaction_valid
     if not approved:
         suggested_books = []
-        log.info(f"Order rejected - Fraud: {fraud_detected}, Valid: {transaction_valid}")
+        log.info(
+            "[%s] Order rejected - Fraud: %s, Valid: %s",
+            request_id,
+            fraud_detected,
+            transaction_valid,
+        )
     else:
-        log.info("Order approved")
+        log.info("[%s] Order approved", request_id)
 
     order_status_response = {
         "orderId": "12345",

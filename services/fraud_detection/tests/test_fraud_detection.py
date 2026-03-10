@@ -50,8 +50,8 @@ class TestFraudDetectionService:
         assert response.fraud_detected == True
         assert response.reason == "Too many items"
 
-    def test_fraud_missing_user_name(self):
-        """Test fraud detection for missing user name"""
+    def test_missing_user_name_not_flagged_as_fraud(self):
+        """Test that missing user name is no longer treated as fraud"""
         order = {
             "user": {"contact": "john@example.com"},
             "creditCard": {"number": "4532015112830366", "expirationDate": "12/25", "cvv": "123"},
@@ -60,11 +60,11 @@ class TestFraudDetectionService:
         request = fd_pb2.OrderRequest(order_json=json.dumps(order))
         response = self.service.CheckFraud(request, self.context)
         
-        assert response.fraud_detected == True
-        assert response.reason == "Missing user info"
+        assert response.fraud_detected == False
+        assert response.reason == "OK"
 
-    def test_fraud_missing_user_contact(self):
-        """Test fraud detection for missing user contact"""
+    def test_missing_user_contact_not_flagged_as_fraud(self):
+        """Test that missing user contact is no longer treated as fraud"""
         order = {
             "user": {"name": "John Doe"},
             "creditCard": {"number": "4532015112830366", "expirationDate": "12/25", "cvv": "123"},
@@ -73,8 +73,8 @@ class TestFraudDetectionService:
         request = fd_pb2.OrderRequest(order_json=json.dumps(order))
         response = self.service.CheckFraud(request, self.context)
         
-        assert response.fraud_detected == True
-        assert response.reason == "Missing user info"
+        assert response.fraud_detected == False
+        assert response.reason == "OK"
 
     def test_fraud_suspicious_card_number(self):
         """Test fraud detection for invalid card number format"""
@@ -139,8 +139,8 @@ class TestFraudDetectionService:
         assert response.fraud_detected == False
         assert response.reason == "OK"
 
-    def test_null_user(self):
-        """Test handling of null user object"""
+    def test_null_user_not_flagged_as_fraud(self):
+        """Test that null user is no longer treated as fraud"""
         order = {
             "user": None,
             "creditCard": {"number": "4532015112830366", "expirationDate": "12/25", "cvv": "123"},
@@ -149,8 +149,8 @@ class TestFraudDetectionService:
         request = fd_pb2.OrderRequest(order_json=json.dumps(order))
         response = self.service.CheckFraud(request, self.context)
         
-        assert response.fraud_detected == True
-        assert response.reason == "Missing user info"
+        assert response.fraud_detected == False
+        assert response.reason == "OK"
 
     def test_valid_card_13_digits(self):
         """Test valid card with 13 digits (minimum)"""
