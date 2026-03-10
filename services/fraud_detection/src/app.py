@@ -17,8 +17,33 @@ from fraud_detection import fraud_detection_pb2_grpc as fd_grpc
 import grpc
 from concurrent import futures
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s"
+)
 log = logging.getLogger("fraud_detection")
+
+
+def summarize_order(order):
+    items = order.get("items") or []
+    total_quantity = 0
+    for item in items:
+        try:
+            total_quantity += int(item.get("quantity", 0))
+        except (TypeError, ValueError, AttributeError):
+            continue
+
+    user = order.get("user") or {}
+    credit = order.get("creditCard") or {}
+    card_number = str(credit.get("number", ""))
+
+    return {
+        "item_count": len(items),
+        "total_quantity": total_quantity,
+        "has_user_name": bool(user.get("name")),
+        "has_user_contact": bool(user.get("contact")),
+        "card_suffix": card_number[-4:] if card_number else None,
+    }
 
 # Create a class to define the server functions, derived from
 # fraud_detection_pb2_grpc.FraudDetectionServiceServicer
@@ -28,8 +53,11 @@ class FraudDetectionService(fd_grpc.FraudDetectionServiceServicer):
 
         try:
             order = json.loads(request.order_json)
-        except Exception:
+        except Exception as exc:
+            log.warning("Invalid JSON payload received: %s", exc)
             return fd_pb2.FraudResponse(fraud_detected=True, reason="Invalid JSON")
+
+        log.info("Fraud check request summary: %s", summarize_order(order))
 
         items = order.get("items", [])
         user = order.get("user", {}) or {}
@@ -44,17 +72,16 @@ class FraudDetectionService(fd_grpc.FraudDetectionServiceServicer):
             except Exception:
                 pass
         if total_qty >= 50:
+            log.warning("Fraud detected: total quantity too high (%s)", total_qty)
             return fd_pb2.FraudResponse(fraud_detected=True, reason="Too many items")
 
-        # 2) Missing user info
-        if not user.get("name") or not user.get("contact"):
-            return fd_pb2.FraudResponse(fraud_detected=True, reason="Missing user info")
-
-        # 3) Weird card number format (very basic)
+        # 2) Weird card number format (very basic)
         number = str(credit.get("number", ""))
         if number and not re.fullmatch(r"\d{13,19}", number):
+            log.warning("Fraud detected: suspicious card number ending with %s", number[-4:])
             return fd_pb2.FraudResponse(fraud_detected=True, reason="Suspicious card number")
 
+        log.info("Fraud check completed successfully")
         return fd_pb2.FraudResponse(fraud_detected=False, reason="OK")
 
 def serve():
@@ -64,7 +91,7 @@ def serve():
     port = "50051"
     server.add_insecure_port("[::]:" + port)
     server.start()
-    log.info("Fraud detection service started on port %s", port)
+    log.info("Fraud detection service started on port %s with max_workers=%s", port, 10)
     server.wait_for_termination()
 
 

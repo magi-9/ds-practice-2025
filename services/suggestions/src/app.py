@@ -17,8 +17,22 @@ from suggestions import suggestions_pb2_grpc as sg_grpc
 import grpc
 from concurrent import futures
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s"
+)
 log = logging.getLogger("suggestions")
+
+
+def summarize_order(order):
+    items = order.get("items") or []
+    user = order.get("user") or {}
+
+    return {
+        "item_count": len(items),
+        "has_user_name": bool(user.get("name")),
+        "has_user_contact": bool(user.get("contact")),
+    }
 
 # Static book catalog
 BOOK_CATALOG = [
@@ -41,9 +55,12 @@ class SuggestionsService(sg_grpc.SuggestionsServiceServicer):
 
         try:
             order = json.loads(request.order_json)
-        except Exception:
+        except Exception as exc:
             # Return empty suggestions on invalid JSON
+            log.warning("Invalid JSON payload received: %s", exc)
             return sg_pb2.SuggestionsResponse(books=[])
+
+        log.info("Suggestion request summary: %s", summarize_order(order))
 
         # Simple logic: return 3 random books from catalog - later can be some user based history
         num_suggestions = min(3, len(BOOK_CATALOG))
@@ -59,7 +76,11 @@ class SuggestionsService(sg_grpc.SuggestionsServiceServicer):
             for book in suggested_books
         ]
 
-        log.info(f"Returning {len(books)} book suggestions")
+        log.info(
+            "Returning %s book suggestions with ids=%s",
+            len(books),
+            [book.book_id for book in books],
+        )
         return sg_pb2.SuggestionsResponse(books=books)
 
 
@@ -70,7 +91,7 @@ def serve():
     port = "50053"
     server.add_insecure_port("[::]:" + port)
     server.start()
-    log.info("Suggestions service started on port %s", port)
+    log.info("Suggestions service started on port %s with max_workers=%s", port, 10)
     server.wait_for_termination()
 
 
