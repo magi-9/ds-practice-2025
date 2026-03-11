@@ -2,12 +2,25 @@ syntax = "proto3";
 
 package suggestions;
 
-service SuggestionsService {
-  rpc GetSuggestions (SuggestionsRequest) returns (SuggestionsResponse);
+message VectorClock {
+  repeated int32 clock = 1; 
 }
 
-message SuggestionsRequest {
-  string order_json = 1;
+message InitOrderRequest {
+  string order_id = 1;
+  string order_json = 2;
+  VectorClock vc = 3;
+}
+
+message InitOrderResponse {
+  bool ok = 1;
+  string message = 2;
+  VectorClock vc = 3;
+}
+
+message EventRequest {
+  string order_id = 1;
+  VectorClock vc = 2;
 }
 
 message Book {
@@ -17,5 +30,14 @@ message Book {
 }
 
 message SuggestionsResponse {
-  repeated Book books = 1;
+  bool ok = 1;
+  string reason = 2;
+  VectorClock vc = 3;
+  repeated Book books = 4;
+}
+
+service SuggestionsService {
+  rpc InitOrder (InitOrderRequest) returns (InitOrderResponse);
+
+  rpc GetSuggestions (EventRequest) returns (SuggestionsResponse);
 }

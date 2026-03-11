@@ -24,17 +24,23 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n7transaction_verification/transaction_verification.proto\x12\x18transaction_verification\"(\n\x12TransactionRequest\x12\x12\n\norder_json\x18\x01 \x01(\t\"7\n\x13TransactionResponse\x12\x10\n\x08is_valid\x18\x01 \x01(\x08\x12\x0e\n\x06reason\x18\x02 \x01(\t2\x92\x01\n\x1eTransactionVerificationService\x12p\n\x11VerifyTransaction\x12,.transaction_verification.TransactionRequest\x1a-.transaction_verification.TransactionResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n7transaction_verification/transaction_verification.proto\x12\x18transaction_verification\"\x1c\n\x0bVectorClock\x12\r\n\x05\x63lock\x18\x01 \x03(\x05\"k\n\x10InitOrderRequest\x12\x10\n\x08order_id\x18\x01 \x01(\t\x12\x12\n\norder_json\x18\x02 \x01(\t\x12\x31\n\x02vc\x18\x03 \x01(\x0b\x32%.transaction_verification.VectorClock\"c\n\x11InitOrderResponse\x12\n\n\x02ok\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x31\n\x02vc\x18\x03 \x01(\x0b\x32%.transaction_verification.VectorClock\"S\n\x0c\x45ventRequest\x12\x10\n\x08order_id\x18\x01 \x01(\t\x12\x31\n\x02vc\x18\x02 \x01(\x0b\x32%.transaction_verification.VectorClock\"^\n\rEventResponse\x12\n\n\x02ok\x18\x01 \x01(\x08\x12\x0e\n\x06reason\x18\x02 \x01(\t\x12\x31\n\x02vc\x18\x03 \x01(\x0b\x32%.transaction_verification.VectorClock2\xae\x03\n\x1eTransactionVerificationService\x12\x64\n\tInitOrder\x12*.transaction_verification.InitOrderRequest\x1a+.transaction_verification.InitOrderResponse\x12^\n\x0bVerifyItems\x12&.transaction_verification.EventRequest\x1a\'.transaction_verification.EventResponse\x12\x61\n\x0eVerifyUserData\x12&.transaction_verification.EventRequest\x1a\'.transaction_verification.EventResponse\x12\x63\n\x10VerifyCardFormat\x12&.transaction_verification.EventRequest\x1a\'.transaction_verification.EventResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'transaction_verification.transaction_verification_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_TRANSACTIONREQUEST']._serialized_start=85
-  _globals['_TRANSACTIONREQUEST']._serialized_end=125
-  _globals['_TRANSACTIONRESPONSE']._serialized_start=127
-  _globals['_TRANSACTIONRESPONSE']._serialized_end=182
-  _globals['_TRANSACTIONVERIFICATIONSERVICE']._serialized_start=185
-  _globals['_TRANSACTIONVERIFICATIONSERVICE']._serialized_end=331
+  _globals['_VECTORCLOCK']._serialized_start=85
+  _globals['_VECTORCLOCK']._serialized_end=113
+  _globals['_INITORDERREQUEST']._serialized_start=115
+  _globals['_INITORDERREQUEST']._serialized_end=222
+  _globals['_INITORDERRESPONSE']._serialized_start=224
+  _globals['_INITORDERRESPONSE']._serialized_end=323
+  _globals['_EVENTREQUEST']._serialized_start=325
+  _globals['_EVENTREQUEST']._serialized_end=408
+  _globals['_EVENTRESPONSE']._serialized_start=410
+  _globals['_EVENTRESPONSE']._serialized_end=504
+  _globals['_TRANSACTIONVERIFICATIONSERVICE']._serialized_start=507
+  _globals['_TRANSACTIONVERIFICATIONSERVICE']._serialized_end=937
 # @@protoc_insertion_point(module_scope)

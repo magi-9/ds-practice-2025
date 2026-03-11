@@ -2,15 +2,36 @@ syntax = "proto3";
 
 package transaction_verification;
 
-service TransactionVerificationService {
-  rpc VerifyTransaction (TransactionRequest) returns (TransactionResponse);
+message VectorClock {
+  repeated int32 clock = 1;
 }
 
-message TransactionRequest {
-  string order_json = 1;
+message InitOrderRequest {
+  string order_id = 1;
+  string order_json = 2;
+  VectorClock vc = 3;
 }
 
-message TransactionResponse {
-  bool is_valid = 1;
+message InitOrderResponse {
+  bool ok = 1;
+  string message = 2;
+  VectorClock vc = 3;
+}
+
+message EventRequest {
+  string order_id = 1;
+  VectorClock vc = 2;
+}
+
+message EventResponse {
+  bool ok = 1;
   string reason = 2;
+  VectorClock vc = 3;
+}
+
+service TransactionVerificationService {
+  rpc InitOrder (InitOrderRequest) returns (InitOrderResponse);
+  rpc VerifyItems (EventRequest) returns (EventResponse);
+  rpc VerifyUserData (EventRequest) returns (EventResponse);
+  rpc VerifyCardFormat (EventRequest) returns (EventResponse);
 }
