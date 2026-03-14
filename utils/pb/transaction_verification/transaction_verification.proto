@@ -3,11 +3,51 @@ syntax = "proto3";
 package transaction_verification;
 
 service TransactionVerificationService {
+  rpc InitializeOrder (OrderInitializationRequest) returns (OrderInitializationResponse);
+  rpc VerifyItemsNonEmpty (OrderEventRequest) returns (OrderEventResponse);
+  rpc VerifyUserData (OrderEventRequest) returns (OrderEventResponse);
+  rpc VerifyCreditCard (OrderEventRequest) returns (OrderEventResponse);
+  rpc ClearOrder (OrderClearRequest) returns (OrderClearResponse);
   rpc VerifyTransaction (TransactionRequest) returns (TransactionResponse);
 }
 
 message TransactionRequest {
   string order_json = 1;
+}
+
+message OrderInitializationRequest {
+  string order_id = 1;
+  string order_json = 2;
+  map<string, int32> vector_clock = 3;
+}
+
+message OrderInitializationResponse {
+  bool accepted = 1;
+  string reason = 2;
+  map<string, int32> vector_clock = 3;
+}
+
+message OrderEventRequest {
+  string order_id = 1;
+  map<string, int32> vector_clock = 2;
+}
+
+message OrderEventResponse {
+  bool success = 1;
+  string reason = 2;
+  string event_name = 3;
+  map<string, int32> vector_clock = 4;
+}
+
+message OrderClearRequest {
+  string order_id = 1;
+  map<string, int32> final_vector_clock = 2;
+}
+
+message OrderClearResponse {
+  bool cleared = 1;
+  string reason = 2;
+  map<string, int32> vector_clock = 3;
 }
 
 message TransactionResponse {

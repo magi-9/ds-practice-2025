@@ -6,7 +6,7 @@ from typing import ClassVar as _ClassVar, Optional as _Optional
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
-class TransactionRequest(_message.Message):
+class OrderRequest(_message.Message):
     __slots__ = ("order_json",)
     ORDER_JSON_FIELD_NUMBER: _ClassVar[int]
     order_json: str
@@ -112,10 +112,10 @@ class OrderClearResponse(_message.Message):
     vector_clock: _containers.ScalarMap[str, int]
     def __init__(self, cleared: bool = ..., reason: _Optional[str] = ..., vector_clock: _Optional[_Mapping[str, int]] = ...) -> None: ...
 
-class TransactionResponse(_message.Message):
-    __slots__ = ("is_valid", "reason")
-    IS_VALID_FIELD_NUMBER: _ClassVar[int]
+class FraudResponse(_message.Message):
+    __slots__ = ("fraud_detected", "reason")
+    FRAUD_DETECTED_FIELD_NUMBER: _ClassVar[int]
     REASON_FIELD_NUMBER: _ClassVar[int]
-    is_valid: bool
+    fraud_detected: bool
     reason: str
-    def __init__(self, is_valid: bool = ..., reason: _Optional[str] = ...) -> None: ...
+    def __init__(self, fraud_detected: bool = ..., reason: _Optional[str] = ...) -> None: ...
