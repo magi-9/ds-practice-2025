@@ -3,3 +3,7 @@ __pycache__
 .vscode/
 vscode/.DS_Store
 .venv/
+.idea/
+.DS_Store
+.ipynb_checkpoints/
+**/*.pyi
