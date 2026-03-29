@@ -1,179 +1,175 @@
-import sys
-import os
 import json
-import pytest
+import os
+import sys
 
-# Setup path to import the service
+
 FILE = __file__
 pb_root = os.path.abspath(os.path.join(FILE, "../../../../utils/pb"))
 sys.path.insert(0, pb_root)
 
 from fraud_detection import fraud_detection_pb2 as fd_pb2
-from fraud_detection import fraud_detection_pb2_grpc as fd_grpc
 
-# Import the service implementation
 sys.path.insert(0, os.path.abspath(os.path.join(FILE, "../../src")))
 from app import FraudDetectionService
 
 
+def make_valid_order():
+    return {
+        "items": [{"name": "Book A", "quantity": 2}],
+        "user": {"name": "John Doe", "contact": "john@example.com"},
+        "billingAddress": {
+            "street": "Main St 1",
+            "city": "Brno",
+            "country": "CZ",
+        },
+        "creditCard": {
+            "number": "4532015112830366",
+            "expirationDate": "12/25",
+            "cvv": "123",
+        },
+    }
+
+
 class TestFraudDetectionService:
-    """Test suite for FraudDetectionService"""
-
     def setup_method(self):
-        """Setup test fixtures"""
         self.service = FraudDetectionService()
-        self.context = None  # Mock context (not needed for these tests)
+        self.context = None
 
-    def test_valid_order_no_fraud(self):
-        """Test that a valid order passes fraud checks"""
-        order = {
-            "user": {"name": "John Doe", "contact": "john@example.com"},
-            "creditCard": {"number": "4532015112830366", "expirationDate": "12/25", "cvv": "123"},
-            "items": [{"name": "Book A", "quantity": 2}]
-        }
-        request = fd_pb2.OrderRequest(order_json=json.dumps(order))
+    def test_legacy_check_fraud_valid_order(self):
+        request = fd_pb2.OrderRequest(order_json=json.dumps(make_valid_order()))
         response = self.service.CheckFraud(request, self.context)
-        
-        assert response.fraud_detected == False
+
+        assert response.fraud_detected is False
         assert response.reason == "OK"
 
-    def test_fraud_too_many_items(self):
-        """Test fraud detection for orders with quantity >= 50"""
-        order = {
-            "user": {"name": "John Doe", "contact": "john@example.com"},
-            "creditCard": {"number": "4532015112830366", "expirationDate": "12/25", "cvv": "123"},
-            "items": [{"name": "Book A", "quantity": 50}]
-        }
+    def test_legacy_check_fraud_detects_suspicious_user_data(self):
+        order = make_valid_order()
+        order["user"]["name"] = "fraud account"
+
         request = fd_pb2.OrderRequest(order_json=json.dumps(order))
         response = self.service.CheckFraud(request, self.context)
-        
-        assert response.fraud_detected == True
-        assert response.reason == "Too many items"
 
-    def test_missing_user_name_not_flagged_as_fraud(self):
-        """Test that missing user name is no longer treated as fraud"""
-        order = {
-            "user": {"contact": "john@example.com"},
-            "creditCard": {"number": "4532015112830366", "expirationDate": "12/25", "cvv": "123"},
-            "items": [{"name": "Book A", "quantity": 2}]
-        }
+        assert response.fraud_detected is True
+        assert response.reason == "Suspicious user data"
+
+    def test_legacy_check_fraud_detects_repeated_digits_card(self):
+        order = make_valid_order()
+        order["creditCard"]["number"] = "1111111111111111"
+
         request = fd_pb2.OrderRequest(order_json=json.dumps(order))
         response = self.service.CheckFraud(request, self.context)
-        
-        assert response.fraud_detected == False
-        assert response.reason == "OK"
 
-    def test_missing_user_contact_not_flagged_as_fraud(self):
-        """Test that missing user contact is no longer treated as fraud"""
-        order = {
-            "user": {"name": "John Doe"},
-            "creditCard": {"number": "4532015112830366", "expirationDate": "12/25", "cvv": "123"},
-            "items": [{"name": "Book A", "quantity": 2}]
-        }
-        request = fd_pb2.OrderRequest(order_json=json.dumps(order))
-        response = self.service.CheckFraud(request, self.context)
-        
-        assert response.fraud_detected == False
-        assert response.reason == "OK"
+        assert response.fraud_detected is True
+        assert response.reason == "Suspicious repeated card digits"
 
-    def test_fraud_suspicious_card_number(self):
-        """Test fraud detection for invalid card number format"""
-        order = {
-            "user": {"name": "John Doe", "contact": "john@example.com"},
-            "creditCard": {"number": "1234-5678-9012-3456", "expirationDate": "12/25", "cvv": "123"},
-            "items": [{"name": "Book A", "quantity": 2}]
-        }
-        request = fd_pb2.OrderRequest(order_json=json.dumps(order))
+    def test_legacy_check_fraud_invalid_json(self):
+        request = fd_pb2.OrderRequest(order_json="not json")
         response = self.service.CheckFraud(request, self.context)
-        
-        assert response.fraud_detected == True
-        assert response.reason == "Suspicious card number"
 
-    def test_invalid_json(self):
-        """Test handling of invalid JSON"""
-        request = fd_pb2.OrderRequest(order_json="invalid json{{{")
-        response = self.service.CheckFraud(request, self.context)
-        
-        assert response.fraud_detected == True
+        assert response.fraud_detected is True
         assert response.reason == "Invalid JSON"
 
-    def test_multiple_items_total_quantity(self):
-        """Test that quantities are summed across multiple items"""
-        order = {
-            "user": {"name": "John Doe", "contact": "john@example.com"},
-            "creditCard": {"number": "4532015112830366", "expirationDate": "12/25", "cvv": "123"},
-            "items": [
-                {"name": "Book A", "quantity": 25},
-                {"name": "Book B", "quantity": 25}
-            ]
-        }
-        request = fd_pb2.OrderRequest(order_json=json.dumps(order))
-        response = self.service.CheckFraud(request, self.context)
-        
-        assert response.fraud_detected == True
-        assert response.reason == "Too many items"
 
-    def test_edge_case_quantity_49(self):
-        """Test edge case: quantity 49 should pass"""
-        order = {
-            "user": {"name": "John Doe", "contact": "john@example.com"},
-            "creditCard": {"number": "4532015112830366", "expirationDate": "12/25", "cvv": "123"},
-            "items": [{"name": "Book A", "quantity": 49}]
-        }
-        request = fd_pb2.OrderRequest(order_json=json.dumps(order))
-        response = self.service.CheckFraud(request, self.context)
-        
-        assert response.fraud_detected == False
-        assert response.reason == "OK"
+class TestFraudEventOrderingRpcs:
+    def setup_method(self):
+        self.service = FraudDetectionService()
+        self.context = None
 
-    def test_empty_items_list(self):
-        """Test handling of empty items list"""
-        order = {
-            "user": {"name": "John Doe", "contact": "john@example.com"},
-            "creditCard": {"number": "4532015112830366", "expirationDate": "12/25", "cvv": "123"},
-            "items": []
-        }
-        request = fd_pb2.OrderRequest(order_json=json.dumps(order))
-        response = self.service.CheckFraud(request, self.context)
-        
-        assert response.fraud_detected == False
-        assert response.reason == "OK"
+    def test_initialize_order_rejects_invalid_json(self):
+        request = fd_pb2.OrderInitializationRequest(
+            order_id="order-1",
+            order_json="not json",
+            vector_clock={},
+        )
+        response = self.service.InitializeOrder(request, self.context)
 
-    def test_null_user_not_flagged_as_fraud(self):
-        """Test that null user is no longer treated as fraud"""
-        order = {
-            "user": None,
-            "creditCard": {"number": "4532015112830366", "expirationDate": "12/25", "cvv": "123"},
-            "items": [{"name": "Book A", "quantity": 2}]
-        }
-        request = fd_pb2.OrderRequest(order_json=json.dumps(order))
-        response = self.service.CheckFraud(request, self.context)
-        
-        assert response.fraud_detected == False
-        assert response.reason == "OK"
+        assert response.accepted is False
+        assert response.reason == "Invalid JSON"
+        assert dict(response.vector_clock) == {}
 
-    def test_valid_card_13_digits(self):
-        """Test valid card with 13 digits (minimum)"""
-        order = {
-            "user": {"name": "John Doe", "contact": "john@example.com"},
-            "creditCard": {"number": "1234567890123", "expirationDate": "12/25", "cvv": "123"},
-            "items": [{"name": "Book A", "quantity": 2}]
-        }
-        request = fd_pb2.OrderRequest(order_json=json.dumps(order))
-        response = self.service.CheckFraud(request, self.context)
-        
-        assert response.fraud_detected == False
-        assert response.reason == "OK"
+    def test_check_user_fraud_for_missing_order_id(self):
+        request = fd_pb2.OrderEventRequest(order_id="missing", vector_clock={})
+        response = self.service.CheckUserFraud(request, self.context)
 
-    def test_valid_card_19_digits(self):
-        """Test valid card with 19 digits (maximum)"""
-        order = {
-            "user": {"name": "John Doe", "contact": "john@example.com"},
-            "creditCard": {"number": "1234567890123456789", "expirationDate": "12/25", "cvv": "123"},
-            "items": [{"name": "Book A", "quantity": 2}]
+        assert response.success is False
+        assert response.reason == "Order not initialized"
+        assert dict(response.vector_clock) == {}
+
+    def test_check_card_fraud_merges_clock_and_increments_local_slot(self):
+        order = make_valid_order()
+        init_response = self.service.InitializeOrder(
+            fd_pb2.OrderInitializationRequest(
+                order_id="order-2",
+                order_json=json.dumps(order),
+                vector_clock={"transaction_verification": 2, "fraud_detection": 0, "suggestions": 0},
+            ),
+            self.context,
+        )
+        assert init_response.accepted is True
+
+        event_response = self.service.CheckCardFraud(
+            fd_pb2.OrderEventRequest(
+                order_id="order-2",
+                vector_clock={"transaction_verification": 2, "fraud_detection": 0, "suggestions": 4},
+            ),
+            self.context,
+        )
+
+        assert event_response.success is True
+        assert event_response.event_name == "e"
+        assert dict(event_response.vector_clock) == {
+            "transaction_verification": 2,
+            "fraud_detection": 1,
+            "suggestions": 4,
         }
-        request = fd_pb2.OrderRequest(order_json=json.dumps(order))
-        response = self.service.CheckFraud(request, self.context)
-        
-        assert response.fraud_detected == False
-        assert response.reason == "OK"
+
+    def test_clear_order_refuses_when_final_clock_is_behind(self):
+        order = make_valid_order()
+        self.service.InitializeOrder(
+            fd_pb2.OrderInitializationRequest(
+                order_id="order-3",
+                order_json=json.dumps(order),
+                vector_clock={},
+            ),
+            self.context,
+        )
+        self.service.CheckUserFraud(
+            fd_pb2.OrderEventRequest(order_id="order-3", vector_clock={}),
+            self.context,
+        )
+
+        clear_response = self.service.ClearOrder(
+            fd_pb2.OrderClearRequest(
+                order_id="order-3",
+                final_vector_clock={"transaction_verification": 0, "fraud_detection": 0, "suggestions": 0},
+            ),
+            self.context,
+        )
+
+        assert clear_response.cleared is False
+        assert dict(clear_response.vector_clock)["fraud_detection"] == 1
+
+    def test_clear_order_succeeds_with_up_to_date_final_clock(self):
+        order = make_valid_order()
+        self.service.InitializeOrder(
+            fd_pb2.OrderInitializationRequest(
+                order_id="order-4",
+                order_json=json.dumps(order),
+                vector_clock={},
+            ),
+            self.context,
+        )
+        self.service.CheckUserFraud(
+            fd_pb2.OrderEventRequest(order_id="order-4", vector_clock={}),
+            self.context,
+        )
+
+        clear_response = self.service.ClearOrder(
+            fd_pb2.OrderClearRequest(
+                order_id="order-4",
+                final_vector_clock={"transaction_verification": 0, "fraud_detection": 1, "suggestions": 0},
+            ),
+            self.context,
+        )
+
+        assert clear_response.cleared is True

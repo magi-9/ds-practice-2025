@@ -24,19 +24,55 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1dsuggestions/suggestions.proto\x12\x0bsuggestions\"(\n\x12SuggestionsRequest\x12\x12\n\norder_json\x18\x01 \x01(\t\"6\n\x04\x42ook\x12\x0f\n\x07\x62ook_id\x18\x01 \x01(\t\x12\r\n\x05title\x18\x02 \x01(\t\x12\x0e\n\x06\x61uthor\x18\x03 \x01(\t\"7\n\x13SuggestionsResponse\x12 \n\x05\x62ooks\x18\x01 \x03(\x0b\x32\x11.suggestions.Book2i\n\x12SuggestionsService\x12S\n\x0eGetSuggestions\x12\x1f.suggestions.SuggestionsRequest\x1a .suggestions.SuggestionsResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1dsuggestions/suggestions.proto\x12\x0bsuggestions\"(\n\x12SuggestionsRequest\x12\x12\n\norder_json\x18\x01 \x01(\t\"\xc6\x01\n\x1aOrderInitializationRequest\x12\x10\n\x08order_id\x18\x01 \x01(\t\x12\x12\n\norder_json\x18\x02 \x01(\t\x12N\n\x0cvector_clock\x18\x03 \x03(\x0b\x32\x38.suggestions.OrderInitializationRequest.VectorClockEntry\x1a\x32\n\x10VectorClockEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x05:\x02\x38\x01\"\xc4\x01\n\x1bOrderInitializationResponse\x12\x10\n\x08\x61\x63\x63\x65pted\x18\x01 \x01(\x08\x12\x0e\n\x06reason\x18\x02 \x01(\t\x12O\n\x0cvector_clock\x18\x03 \x03(\x0b\x32\x39.suggestions.OrderInitializationResponse.VectorClockEntry\x1a\x32\n\x10VectorClockEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x05:\x02\x38\x01\"\xa0\x01\n\x11OrderEventRequest\x12\x10\n\x08order_id\x18\x01 \x01(\t\x12\x45\n\x0cvector_clock\x18\x02 \x03(\x0b\x32/.suggestions.OrderEventRequest.VectorClockEntry\x1a\x32\n\x10VectorClockEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x05:\x02\x38\x01\"\xb0\x01\n\x11OrderClearRequest\x12\x10\n\x08order_id\x18\x01 \x01(\t\x12P\n\x12\x66inal_vector_clock\x18\x02 \x03(\x0b\x32\x34.suggestions.OrderClearRequest.FinalVectorClockEntry\x1a\x37\n\x15\x46inalVectorClockEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x05:\x02\x38\x01\"\xb1\x01\n\x12OrderClearResponse\x12\x0f\n\x07\x63leared\x18\x01 \x01(\x08\x12\x0e\n\x06reason\x18\x02 \x01(\t\x12\x46\n\x0cvector_clock\x18\x03 \x03(\x0b\x32\x30.suggestions.OrderClearResponse.VectorClockEntry\x1a\x32\n\x10VectorClockEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x05:\x02\x38\x01\"6\n\x04\x42ook\x12\x0f\n\x07\x62ook_id\x18\x01 \x01(\t\x12\r\n\x05title\x18\x02 \x01(\t\x12\x0e\n\x06\x61uthor\x18\x03 \x01(\t\"\xf3\x01\n\x18SuggestionsEventResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0e\n\x06reason\x18\x02 \x01(\t\x12\x12\n\nevent_name\x18\x03 \x01(\t\x12L\n\x0cvector_clock\x18\x04 \x03(\x0b\x32\x36.suggestions.SuggestionsEventResponse.VectorClockEntry\x12 \n\x05\x62ooks\x18\x05 \x03(\x0b\x32\x11.suggestions.Book\x1a\x32\n\x10VectorClockEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x05:\x02\x38\x01\"7\n\x13SuggestionsResponse\x12 \n\x05\x62ooks\x18\x01 \x03(\x0b\x32\x11.suggestions.Book2\xfc\x02\n\x12SuggestionsService\x12\x64\n\x0fInitializeOrder\x12\'.suggestions.OrderInitializationRequest\x1a(.suggestions.OrderInitializationResponse\x12\\\n\x13GenerateSuggestions\x12\x1e.suggestions.OrderEventRequest\x1a%.suggestions.SuggestionsEventResponse\x12M\n\nClearOrder\x12\x1e.suggestions.OrderClearRequest\x1a\x1f.suggestions.OrderClearResponse\x12S\n\x0eGetSuggestions\x12\x1f.suggestions.SuggestionsRequest\x1a .suggestions.SuggestionsResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'suggestions.suggestions_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
+  _globals['_ORDERINITIALIZATIONREQUEST_VECTORCLOCKENTRY']._loaded_options = None
+  _globals['_ORDERINITIALIZATIONREQUEST_VECTORCLOCKENTRY']._serialized_options = b'8\001'
+  _globals['_ORDERINITIALIZATIONRESPONSE_VECTORCLOCKENTRY']._loaded_options = None
+  _globals['_ORDERINITIALIZATIONRESPONSE_VECTORCLOCKENTRY']._serialized_options = b'8\001'
+  _globals['_ORDEREVENTREQUEST_VECTORCLOCKENTRY']._loaded_options = None
+  _globals['_ORDEREVENTREQUEST_VECTORCLOCKENTRY']._serialized_options = b'8\001'
+  _globals['_ORDERCLEARREQUEST_FINALVECTORCLOCKENTRY']._loaded_options = None
+  _globals['_ORDERCLEARREQUEST_FINALVECTORCLOCKENTRY']._serialized_options = b'8\001'
+  _globals['_ORDERCLEARRESPONSE_VECTORCLOCKENTRY']._loaded_options = None
+  _globals['_ORDERCLEARRESPONSE_VECTORCLOCKENTRY']._serialized_options = b'8\001'
+  _globals['_SUGGESTIONSEVENTRESPONSE_VECTORCLOCKENTRY']._loaded_options = None
+  _globals['_SUGGESTIONSEVENTRESPONSE_VECTORCLOCKENTRY']._serialized_options = b'8\001'
   _globals['_SUGGESTIONSREQUEST']._serialized_start=46
   _globals['_SUGGESTIONSREQUEST']._serialized_end=86
-  _globals['_BOOK']._serialized_start=88
-  _globals['_BOOK']._serialized_end=142
-  _globals['_SUGGESTIONSRESPONSE']._serialized_start=144
-  _globals['_SUGGESTIONSRESPONSE']._serialized_end=199
-  _globals['_SUGGESTIONSSERVICE']._serialized_start=201
-  _globals['_SUGGESTIONSSERVICE']._serialized_end=306
+  _globals['_ORDERINITIALIZATIONREQUEST']._serialized_start=89
+  _globals['_ORDERINITIALIZATIONREQUEST']._serialized_end=287
+  _globals['_ORDERINITIALIZATIONREQUEST_VECTORCLOCKENTRY']._serialized_start=237
+  _globals['_ORDERINITIALIZATIONREQUEST_VECTORCLOCKENTRY']._serialized_end=287
+  _globals['_ORDERINITIALIZATIONRESPONSE']._serialized_start=290
+  _globals['_ORDERINITIALIZATIONRESPONSE']._serialized_end=486
+  _globals['_ORDERINITIALIZATIONRESPONSE_VECTORCLOCKENTRY']._serialized_start=237
+  _globals['_ORDERINITIALIZATIONRESPONSE_VECTORCLOCKENTRY']._serialized_end=287
+  _globals['_ORDEREVENTREQUEST']._serialized_start=489
+  _globals['_ORDEREVENTREQUEST']._serialized_end=649
+  _globals['_ORDEREVENTREQUEST_VECTORCLOCKENTRY']._serialized_start=237
+  _globals['_ORDEREVENTREQUEST_VECTORCLOCKENTRY']._serialized_end=287
+  _globals['_ORDERCLEARREQUEST']._serialized_start=652
+  _globals['_ORDERCLEARREQUEST']._serialized_end=828
+  _globals['_ORDERCLEARREQUEST_FINALVECTORCLOCKENTRY']._serialized_start=773
+  _globals['_ORDERCLEARREQUEST_FINALVECTORCLOCKENTRY']._serialized_end=828
+  _globals['_ORDERCLEARRESPONSE']._serialized_start=831
+  _globals['_ORDERCLEARRESPONSE']._serialized_end=1008
+  _globals['_ORDERCLEARRESPONSE_VECTORCLOCKENTRY']._serialized_start=237
+  _globals['_ORDERCLEARRESPONSE_VECTORCLOCKENTRY']._serialized_end=287
+  _globals['_BOOK']._serialized_start=1010
+  _globals['_BOOK']._serialized_end=1064
+  _globals['_SUGGESTIONSEVENTRESPONSE']._serialized_start=1067
+  _globals['_SUGGESTIONSEVENTRESPONSE']._serialized_end=1310
+  _globals['_SUGGESTIONSEVENTRESPONSE_VECTORCLOCKENTRY']._serialized_start=237
+  _globals['_SUGGESTIONSEVENTRESPONSE_VECTORCLOCKENTRY']._serialized_end=287
+  _globals['_SUGGESTIONSRESPONSE']._serialized_start=1312
+  _globals['_SUGGESTIONSRESPONSE']._serialized_end=1367
+  _globals['_SUGGESTIONSSERVICE']._serialized_start=1370
+  _globals['_SUGGESTIONSSERVICE']._serialized_end=1750
 # @@protoc_insertion_point(module_scope)

@@ -34,6 +34,21 @@ class SuggestionsServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.InitializeOrder = channel.unary_unary(
+                '/suggestions.SuggestionsService/InitializeOrder',
+                request_serializer=suggestions_dot_suggestions__pb2.OrderInitializationRequest.SerializeToString,
+                response_deserializer=suggestions_dot_suggestions__pb2.OrderInitializationResponse.FromString,
+                _registered_method=True)
+        self.GenerateSuggestions = channel.unary_unary(
+                '/suggestions.SuggestionsService/GenerateSuggestions',
+                request_serializer=suggestions_dot_suggestions__pb2.OrderEventRequest.SerializeToString,
+                response_deserializer=suggestions_dot_suggestions__pb2.SuggestionsEventResponse.FromString,
+                _registered_method=True)
+        self.ClearOrder = channel.unary_unary(
+                '/suggestions.SuggestionsService/ClearOrder',
+                request_serializer=suggestions_dot_suggestions__pb2.OrderClearRequest.SerializeToString,
+                response_deserializer=suggestions_dot_suggestions__pb2.OrderClearResponse.FromString,
+                _registered_method=True)
         self.GetSuggestions = channel.unary_unary(
                 '/suggestions.SuggestionsService/GetSuggestions',
                 request_serializer=suggestions_dot_suggestions__pb2.SuggestionsRequest.SerializeToString,
@@ -44,6 +59,24 @@ class SuggestionsServiceStub(object):
 class SuggestionsServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
+    def InitializeOrder(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GenerateSuggestions(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ClearOrder(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetSuggestions(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -53,6 +86,21 @@ class SuggestionsServiceServicer(object):
 
 def add_SuggestionsServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+            'InitializeOrder': grpc.unary_unary_rpc_method_handler(
+                    servicer.InitializeOrder,
+                    request_deserializer=suggestions_dot_suggestions__pb2.OrderInitializationRequest.FromString,
+                    response_serializer=suggestions_dot_suggestions__pb2.OrderInitializationResponse.SerializeToString,
+            ),
+            'GenerateSuggestions': grpc.unary_unary_rpc_method_handler(
+                    servicer.GenerateSuggestions,
+                    request_deserializer=suggestions_dot_suggestions__pb2.OrderEventRequest.FromString,
+                    response_serializer=suggestions_dot_suggestions__pb2.SuggestionsEventResponse.SerializeToString,
+            ),
+            'ClearOrder': grpc.unary_unary_rpc_method_handler(
+                    servicer.ClearOrder,
+                    request_deserializer=suggestions_dot_suggestions__pb2.OrderClearRequest.FromString,
+                    response_serializer=suggestions_dot_suggestions__pb2.OrderClearResponse.SerializeToString,
+            ),
             'GetSuggestions': grpc.unary_unary_rpc_method_handler(
                     servicer.GetSuggestions,
                     request_deserializer=suggestions_dot_suggestions__pb2.SuggestionsRequest.FromString,
@@ -68,6 +116,87 @@ def add_SuggestionsServiceServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class SuggestionsService(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def InitializeOrder(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/suggestions.SuggestionsService/InitializeOrder',
+            suggestions_dot_suggestions__pb2.OrderInitializationRequest.SerializeToString,
+            suggestions_dot_suggestions__pb2.OrderInitializationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GenerateSuggestions(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/suggestions.SuggestionsService/GenerateSuggestions',
+            suggestions_dot_suggestions__pb2.OrderEventRequest.SerializeToString,
+            suggestions_dot_suggestions__pb2.SuggestionsEventResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ClearOrder(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/suggestions.SuggestionsService/ClearOrder',
+            suggestions_dot_suggestions__pb2.OrderClearRequest.SerializeToString,
+            suggestions_dot_suggestions__pb2.OrderClearResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
 
     @staticmethod
     def GetSuggestions(request,
