@@ -48,10 +48,10 @@ When the orchestrator calls InitializeOrder() on a service, that service then cr
 
 **Local increment on event**
 
-Every time a serivce executes an event, it needs to mark that it did something. It does this by +1 to its own slot in the vector clock.
+Every time a service executes an event, it needs to mark that it did something. It does this by +1 to its own slot in the vector clock.
 state.vector_clock[self._service_name] += 1
 
-So if transaction_verifiction runs event_a, only the transaction_verification slot goes up by 1. For example: 
+So if transaction_verification runs event_a, only the transaction_verification slot goes up by 1. For example:
 
 Before: {"transaction_verification": 0, "fraud_detection": 0, "suggestions": 0}
 
@@ -59,7 +59,7 @@ After: {"transaction_verification": 1, "fraud_detection": 0, "suggestions": 0}
 
 **Merge/update on received messages**
 
-When a service receives a message from another service, it needs to catch up on what the other service has done. It does this by comparing its own vetor clock with the incoming vector clock and taking the maximum value for each slot. 
+When a service receives a message from another service, it needs to catch up on what the other service has done. It does this by comparing its own vector clock with the incoming vector clock and taking the maximum value for each slot.
 
 If the other service has a higher number in any slot, we update our own slot to match it. But this happens BEFORE increasing our own slot, because we first want to know what the other service knew and then record our own new action.
 
@@ -73,8 +73,8 @@ after increasing the slot: {"transaction_verification": 2, "fraud_detection": 1,
 
 **Logging format**
 
-After each event, the following is logged. Each log entry contains the 
-order ID, the event name, the current vector clock, whether the event 
+After each event, the following is logged. Each log entry contains the
+order ID, the event name, the current vector clock, whether the event
 succeeded, and the reason.
 
 For example:
@@ -84,7 +84,7 @@ order_id=123 event=a vc={"transaction_verification": 1, "fraud_detection": 0, "s
 
 **OrderID**
 
-The orchestrator generates a unique order_id for each order. 
+The orchestrator generates a unique order_id for each order.
 
 **Vector clock**
 
@@ -93,12 +93,12 @@ Every request and response includes a vector clock:
 
 **Failure format**
 
-If any event fails, the service immediately returns a response with success set to false and a reason string explainig what went wrong. The orchestrator then stops the entire flow and returns the error to the user.
+If any event fails, the service immediately returns a response with success set to false and a reason string explaining what went wrong. The orchestrator then stops the entire flow and returns the error to the user.
 For example: success=false, reason="Missing user name"
 
 **Success response**
 
-If all events complete successfully then the suggestions service returns 
-a list of recommended books to the orchestrator which then sends 
+If all events complete successfully then the suggestions service returns
+a list of recommended books to the orchestrator which then sends
 them back to the user.
 For example: {"book_id": "101", "title": "The Great Gatsby", "author": "F. Scott Fitzgerald"}

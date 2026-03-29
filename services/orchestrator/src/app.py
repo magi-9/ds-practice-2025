@@ -87,6 +87,11 @@ def get_request_id():
 
 VC_COMPONENTS = ("transaction_verification", "fraud_detection", "suggestions")
 
+
+class BackendServiceError(RuntimeError):
+    """Raised when a backend service call fails at transport/service level."""
+
+
 def new_vector_clock():
     return {name: 0 for name in VC_COMPONENTS}
 
@@ -100,22 +105,37 @@ def init_all_services(order_id: str, order_dict: dict, vc: dict, request_id: str
     payload = json.dumps(order_dict)
 
     def init_tv():
-        with grpc.insecure_channel("transaction_verification:50052") as channel:
-            stub = tv_grpc.TransactionVerificationServiceStub(channel)
-            req = tv_pb2.OrderInitializationRequest(order_id=order_id, order_json=payload, vector_clock=vc)
-            return stub.InitializeOrder(req, timeout=3)
+        try:
+            with grpc.insecure_channel("transaction_verification:50052") as channel:
+                stub = tv_grpc.TransactionVerificationServiceStub(channel)
+                req = tv_pb2.OrderInitializationRequest(order_id=order_id, order_json=payload, vector_clock=vc)
+                return stub.InitializeOrder(req, timeout=3)
+        except grpc.RpcError as e:
+            raise BackendServiceError(
+                f"TV init call failed: {e.code().name if hasattr(e, 'code') else 'UNKNOWN'}"
+            ) from e
 
     def init_fd():
-        with grpc.insecure_channel("fraud_detection:50051") as channel:
-            stub = fd_grpc.FraudDetectionServiceStub(channel)
-            req = fd_pb2.OrderInitializationRequest(order_id=order_id, order_json=payload, vector_clock=vc)
-            return stub.InitializeOrder(req, timeout=3)
+        try:
+            with grpc.insecure_channel("fraud_detection:50051") as channel:
+                stub = fd_grpc.FraudDetectionServiceStub(channel)
+                req = fd_pb2.OrderInitializationRequest(order_id=order_id, order_json=payload, vector_clock=vc)
+                return stub.InitializeOrder(req, timeout=3)
+        except grpc.RpcError as e:
+            raise BackendServiceError(
+                f"FD init call failed: {e.code().name if hasattr(e, 'code') else 'UNKNOWN'}"
+            ) from e
 
     def init_sg():
-        with grpc.insecure_channel("suggestions:50053") as channel:
-            stub = sg_grpc.SuggestionsServiceStub(channel)
-            req = sg_pb2.OrderInitializationRequest(order_id=order_id, order_json=payload, vector_clock=vc)
-            return stub.InitializeOrder(req, timeout=3)
+        try:
+            with grpc.insecure_channel("suggestions:50053") as channel:
+                stub = sg_grpc.SuggestionsServiceStub(channel)
+                req = sg_pb2.OrderInitializationRequest(order_id=order_id, order_json=payload, vector_clock=vc)
+                return stub.InitializeOrder(req, timeout=3)
+        except grpc.RpcError as e:
+            raise BackendServiceError(
+                f"SG init call failed: {e.code().name if hasattr(e, 'code') else 'UNKNOWN'}"
+            ) from e
 
     log.info("[%s] InitOrder: order_id=%s vc=%s", request_id, order_id, vc)
 
@@ -142,37 +162,70 @@ def init_all_services(order_id: str, order_dict: dict, vc: dict, request_id: str
     return merged
 
 def tv_event(order_id: str, method_name: str, vc: dict, request_id: str):
-    with grpc.insecure_channel("transaction_verification:50052") as channel:
-        stub = tv_grpc.TransactionVerificationServiceStub(channel)
-        req = tv_pb2.OrderEventRequest(order_id=order_id, vector_clock=vc)
-        method = getattr(stub, method_name)
-        resp = method(req, timeout=3)
-        new_vc = merge_clock(vc, dict(resp.vector_clock))
-        log.info("[%s] TV.%s => success=%s reason=%s event=%s vc=%s",
-                 request_id, method_name, resp.success, resp.reason, resp.event_name, new_vc)
-        return resp.success, resp.reason, resp.event_name, new_vc
+    try:
+        with grpc.insecure_channel("transaction_verification:50052") as channel:
+            stub = tv_grpc.TransactionVerificationServiceStub(channel)
+            req = tv_pb2.OrderEventRequest(order_id=order_id, vector_clock=vc)
+            method = getattr(stub, method_name)
+            resp = method(req, timeout=3)
+            new_vc = merge_clock(vc, dict(resp.vector_clock))
+            log.info("[%s] TV.%s => success=%s reason=%s event=%s vc=%s",
+                     request_id, method_name, resp.success, resp.reason, resp.event_name, new_vc)
+            return resp.success, resp.reason, resp.event_name, new_vc
+    except grpc.RpcError as e:
+        log.error(
+            "[%s] TV.%s gRPC error: code=%s details=%s",
+            request_id,
+            method_name,
+            e.code() if hasattr(e, "code") else "UNKNOWN",
+            e.details() if hasattr(e, "details") else str(e),
+        )
+        raise BackendServiceError(
+            f"transaction_verification.{method_name} unavailable"
+        ) from e
 
 def fd_event(order_id: str, method_name: str, vc: dict, request_id: str):
-    with grpc.insecure_channel("fraud_detection:50051") as channel:
-        stub = fd_grpc.FraudDetectionServiceStub(channel)
-        req = fd_pb2.OrderEventRequest(order_id=order_id, vector_clock=vc)
-        method = getattr(stub, method_name)
-        resp = method(req, timeout=3)
-        new_vc = merge_clock(vc, dict(resp.vector_clock))
-        log.info("[%s] FD.%s => success=%s reason=%s event=%s vc=%s",
-                 request_id, method_name, resp.success, resp.reason, resp.event_name, new_vc)
-        return resp.success, resp.reason, resp.event_name, new_vc
+    try:
+        with grpc.insecure_channel("fraud_detection:50051") as channel:
+            stub = fd_grpc.FraudDetectionServiceStub(channel)
+            req = fd_pb2.OrderEventRequest(order_id=order_id, vector_clock=vc)
+            method = getattr(stub, method_name)
+            resp = method(req, timeout=3)
+            new_vc = merge_clock(vc, dict(resp.vector_clock))
+            log.info("[%s] FD.%s => success=%s reason=%s event=%s vc=%s",
+                     request_id, method_name, resp.success, resp.reason, resp.event_name, new_vc)
+            return resp.success, resp.reason, resp.event_name, new_vc
+    except grpc.RpcError as e:
+        log.error(
+            "[%s] FD.%s gRPC error: code=%s details=%s",
+            request_id,
+            method_name,
+            e.code() if hasattr(e, "code") else "UNKNOWN",
+            e.details() if hasattr(e, "details") else str(e),
+        )
+        raise BackendServiceError(
+            f"fraud_detection.{method_name} unavailable"
+        ) from e
 
 def sg_event_generate(order_id: str, vc: dict, request_id: str):
-    with grpc.insecure_channel("suggestions:50053") as channel:
-        stub = sg_grpc.SuggestionsServiceStub(channel)
-        req = sg_pb2.OrderEventRequest(order_id=order_id, vector_clock=vc)
-        resp = stub.GenerateSuggestions(req, timeout=3)
-        new_vc = merge_clock(vc, dict(resp.vector_clock))
-        log.info("[%s] SG.GenerateSuggestions => success=%s reason=%s event=%s vc=%s books=%s",
-                 request_id, resp.success, resp.reason, resp.event_name, new_vc, len(resp.books))
-        books = [{"bookId": b.book_id, "title": b.title, "author": b.author} for b in resp.books]
-        return resp.success, resp.reason, resp.event_name, new_vc, books
+    try:
+        with grpc.insecure_channel("suggestions:50053") as channel:
+            stub = sg_grpc.SuggestionsServiceStub(channel)
+            req = sg_pb2.OrderEventRequest(order_id=order_id, vector_clock=vc)
+            resp = stub.GenerateSuggestions(req, timeout=3)
+            new_vc = merge_clock(vc, dict(resp.vector_clock))
+            log.info("[%s] SG.GenerateSuggestions => success=%s reason=%s event=%s vc=%s books=%s",
+                     request_id, resp.success, resp.reason, resp.event_name, new_vc, len(resp.books))
+            books = [{"bookId": b.book_id, "title": b.title, "author": b.author} for b in resp.books]
+            return resp.success, resp.reason, resp.event_name, new_vc, books
+    except grpc.RpcError as e:
+        log.error(
+            "[%s] SG.GenerateSuggestions gRPC error: code=%s details=%s",
+            request_id,
+            e.code() if hasattr(e, "code") else "UNKNOWN",
+            e.details() if hasattr(e, "details") else str(e),
+        )
+        raise BackendServiceError("suggestions.GenerateSuggestions unavailable") from e
 
 def clear_all_services(order_id: str, final_vc: dict, request_id: str):
     def clear_tv():
@@ -193,14 +246,34 @@ def clear_all_services(order_id: str, final_vc: dict, request_id: str):
             req = sg_pb2.OrderClearRequest(order_id=order_id, final_vector_clock=final_vc)
             return stub.ClearOrder(req, timeout=3)
 
+    futures = {}
     try:
         with ThreadPoolExecutor(max_workers=3, thread_name_prefix="clear") as ex:
-            ex.submit(clear_tv)
-            ex.submit(clear_fd)
-            ex.submit(clear_sg)
+            futures[ex.submit(clear_tv)] = "transaction_verification"
+            futures[ex.submit(clear_fd)] = "fraud_detection"
+            futures[ex.submit(clear_sg)] = "suggestions"
+
+        for future, service_name in futures.items():
+            try:
+                response = future.result()
+                log.info(
+                    "[%s] ClearOrder %s => cleared=%s reason=%s",
+                    request_id,
+                    service_name,
+                    getattr(response, "cleared", "?"),
+                    getattr(response, "reason", ""),
+                )
+            except Exception as service_error:
+                log.warning(
+                    "[%s] ClearOrder to service %s failed: %s",
+                    request_id,
+                    service_name,
+                    service_error,
+                )
+
         log.info("[%s] ClearOrder broadcast sent order_id=%s final_vc=%s", request_id, order_id, final_vc)
     except Exception as e:
-        log.warning("[%s] ClearOrder broadcast failed: %s", request_id, e)
+        log.warning("[%s] ClearOrder broadcast submission failed: %s", request_id, e)
 
 
 def call_fraud_detection(order_dict):
@@ -379,59 +452,73 @@ def checkout():
         vc = init_all_services(order_id, request_data, vc, request_id)
     except Exception as e:
         log.error("[%s] InitOrder failed: %s", request_id, e)
-        return jsonify({"error": {"code": "SERVICE_UNAVAILABLE", "message": "Failed to initialize backend services"}}), 503
-
-    # a || b in parallel
-    def run_a():
-        return tv_event(order_id, "VerifyItemsNonEmpty", vc, request_id)
-
-    def run_b():
-        return tv_event(order_id, "VerifyUserData", vc, request_id)
-
-    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="events") as ex:
-        fa = ex.submit(run_a)
-        fb = ex.submit(run_b)
-        a_success, a_reason, _, vc_a = fa.result()
-        b_success, b_reason, _, vc_b = fb.result()
-
-    vc = merge_clock(vc, vc_a)
-    vc = merge_clock(vc, vc_b)
-
-    if not a_success:
         clear_all_services(order_id, vc, request_id)
-        return jsonify({"orderId": order_id, "status": "Order Rejected", "suggestedBooks": []}), 200
+        error_message = "Failed to initialize backend services"
+        reason = str(e).strip()
+        if reason:
+            error_message = f"{error_message}: {reason}"
+        return jsonify({"error": {"code": "SERVICE_UNAVAILABLE", "message": error_message}}), 503
 
-    if not b_success:
+    try:
+        # a || b in parallel
+        def run_a():
+            return tv_event(order_id, "VerifyItemsNonEmpty", vc, request_id)
+
+        def run_b():
+            return tv_event(order_id, "VerifyUserData", vc, request_id)
+
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="events") as ex:
+            fa = ex.submit(run_a)
+            fb = ex.submit(run_b)
+            a_success, a_reason, _, vc_a = fa.result()
+            b_success, b_reason, _, vc_b = fb.result()
+
+        vc = merge_clock(vc, vc_a)
+        vc = merge_clock(vc, vc_b)
+
+        if not a_success:
+            clear_all_services(order_id, vc, request_id)
+            return jsonify({"orderId": order_id, "status": "Order Rejected", "suggestedBooks": []}), 200
+
+        if not b_success:
+            clear_all_services(order_id, vc, request_id)
+            return jsonify({"orderId": order_id, "status": "Order Rejected", "suggestedBooks": []}), 200
+
+        # c after a
+        c_success, c_reason, _, vc = tv_event(order_id, "VerifyCreditCard", vc, request_id)
+        if not c_success:
+            clear_all_services(order_id, vc, request_id)
+            return jsonify({"orderId": order_id, "status": "Order Rejected", "suggestedBooks": []}), 200
+
+        # d after b
+        d_success, d_reason, _, vc = fd_event(order_id, "CheckUserFraud", vc, request_id)
+        if not d_success:
+            clear_all_services(order_id, vc, request_id)
+            return jsonify({"orderId": order_id, "status": "Order Rejected", "suggestedBooks": []}), 200
+
+        # e after (c and d)
+        e_success, e_reason, _, vc = fd_event(order_id, "CheckCardFraud", vc, request_id)
+        if not e_success:
+            clear_all_services(order_id, vc, request_id)
+            return jsonify({"orderId": order_id, "status": "Order Rejected", "suggestedBooks": []}), 200
+
+        # f after e
+        f_success, f_reason, _, vc, books = sg_event_generate(order_id, vc, request_id)
+        if not f_success:
+            clear_all_services(order_id, vc, request_id)
+            return jsonify({"orderId": order_id, "status": "Order Rejected", "suggestedBooks": []}), 200
+
         clear_all_services(order_id, vc, request_id)
-        return jsonify({"orderId": order_id, "status": "Order Rejected", "suggestedBooks": []}), 200
-
-    # c after a
-    c_success, c_reason, _, vc = tv_event(order_id, "VerifyCreditCard", vc, request_id)
-    if not c_success:
+        return jsonify({"orderId": order_id, "status": "Order Approved", "suggestedBooks": books}), 200
+    except BackendServiceError as e:
+        log.error("[%s] Event flow failed due to backend error: %s", request_id, e)
         clear_all_services(order_id, vc, request_id)
-        return jsonify({"orderId": order_id, "status": "Order Rejected", "suggestedBooks": []}), 200
-
-    # d after b
-    d_success, d_reason, _, vc = fd_event(order_id, "CheckUserFraud", vc, request_id)
-    if not d_success:
-        clear_all_services(order_id, vc, request_id)
-        return jsonify({"orderId": order_id, "status": "Order Rejected", "suggestedBooks": []}), 200
-
-    # e after (c and d)
-    e_success, e_reason, _, vc = fd_event(order_id, "CheckCardFraud", vc, request_id)
-    if not e_success:
-        clear_all_services(order_id, vc, request_id)
-        return jsonify({"orderId": order_id, "status": "Order Rejected", "suggestedBooks": []}), 200
-
-    # f after e
-    f_success, f_reason, _, vc, books = sg_event_generate(order_id, vc, request_id)
-    if not f_success:
-        clear_all_services(order_id, vc, request_id)
-        return jsonify({"orderId": order_id, "status": "Order Rejected", "suggestedBooks": []}), 200
-
-    clear_all_services(order_id, vc, request_id)
-
-    return jsonify({"orderId": order_id, "status": "Order Approved", "suggestedBooks": books}), 200
+        return jsonify({
+            "error": {
+                "code": "SERVICE_UNAVAILABLE",
+                "message": f"Backend service unavailable: {e}",
+            }
+        }), 503
 
 
 if __name__ == "__main__":
