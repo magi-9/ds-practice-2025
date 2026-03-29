@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package order_queue;
+
+service OrderQueueService {
+  rpc Enqueue (EnqueueRequest) returns (EnqueueResponse);
+  rpc Dequeue (DequeueRequest) returns (DequeueResponse);
+  rpc GetQueueSize (GetQueueSizeRequest) returns (GetQueueSizeResponse);
+  rpc PeekOrder (PeekOrderRequest) returns (PeekOrderResponse);
+}
+
+message Order {
+  string order_id = 1;
+  string order_json = 2;
+  int64 timestamp = 3;
+}
+
+message EnqueueRequest {
+  Order order = 1;
+}
+
+message EnqueueResponse {
+  bool success = 1;
+  string queue_position = 2;
+  string reason = 3;
+}
+
+message DequeueRequest {
+  string executor_id = 1;
+  string executor_token = 2;
+}
+
+message DequeueResponse {
+  bool success = 1;
+  Order order = 2;
+  string dequeue_id = 3;
+  string reason = 4;
+}
+
+message GetQueueSizeRequest {}
+
+message GetQueueSizeResponse {
+  int32 queue_size = 1;
+}
+
+message PeekOrderRequest {
+  int32 position = 1;
+}
+
+message PeekOrderResponse {
+  Order order = 1;
+  bool exists = 2;
+}
