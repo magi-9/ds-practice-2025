@@ -72,5 +72,18 @@ services:
       - ./utils:/app/utils
       - ./services/order_queue/src:/app/services/order_queue/src
       - ./services/order_queue/tests:/app/services/order_queue/tests
+  order_executor:
+    build:
+      context: ./
+      dockerfile: ./services/order_executor/Dockerfile
+    environment:
+      - PYTHONUNBUFFERED=TRUE
+      - PYTHONFILE=/app/services/order_executor/src/app.py
+      - QUEUE_HOST=order_queue:50054
+    volumes:
+      - ./utils:/app/utils
+      - ./services/order_executor/src:/app/services/order_executor/src
     depends_on:
-      - orchestrator
+      - order_queue
+    deploy:
+      replicas: 2
