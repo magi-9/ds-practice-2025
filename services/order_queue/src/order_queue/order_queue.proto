@@ -7,6 +7,8 @@ service OrderQueueService {
   rpc Dequeue (DequeueRequest) returns (DequeueResponse);
   rpc GetQueueSize (GetQueueSizeRequest) returns (GetQueueSizeResponse);
   rpc PeekOrder (PeekOrderRequest) returns (PeekOrderResponse);
+  rpc RegisterExecutor (RegisterExecutorRequest) returns (RegisterExecutorResponse);
+  rpc GetLeader (GetLeaderRequest) returns (GetLeaderResponse);
 }
 
 message Order {
@@ -50,4 +52,21 @@ message PeekOrderRequest {
 message PeekOrderResponse {
   Order order = 1;
   bool exists = 2;
+}
+
+message RegisterExecutorRequest {
+  string executor_id = 1;
+}
+
+message RegisterExecutorResponse {
+  bool success = 1;
+  string leader_id = 2;
+  string executor_token = 3; // only non-empty for leader
+  string reason = 4;
+}
+
+message GetLeaderRequest {}
+
+message GetLeaderResponse {
+  string leader_id = 1;
 }

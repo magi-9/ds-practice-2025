@@ -50,6 +50,11 @@ class OrderQueueService(oq_grpc.OrderQueueServiceServicer):
                     )
 
                 # others are not leader
+                log.info(
+                    "EXECUTOR REGISTERED (follower): executor_id=%s leader_id=%s",
+                    request.executor_id,
+                    self._leader_id,
+                )
                 return oq_pb2.RegisterExecutorResponse(
                     success=True,
                     leader_id=self._leader_id,

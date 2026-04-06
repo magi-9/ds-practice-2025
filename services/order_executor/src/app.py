@@ -57,6 +57,7 @@ class ExecutorService:
         else:
             log.info("I'm not the leader, leader is %s", self.leader_id)
 
+        idle_ticks = 0
         while True:
             if is_leader:
                 try:
@@ -73,10 +74,17 @@ class ExecutorService:
                             response.order.order_id,
                             response.dequeue_id,
                         )
+                        idle_ticks = 0
                     else:
-                        log.debug("dequeue: %s", response.reason)
+                        idle_ticks += 1
+                        if idle_ticks % 10 == 1:
+                            log.info("Waiting for orders... (queue empty)")
                 except Exception as e:
                     log.error("dequeue error: %s", e)
+            else:
+                idle_ticks += 1
+                if idle_ticks % 10 == 1:
+                    log.info("Follower waiting: leader is %s", self.leader_id)
             time.sleep(3)
 
 def launch_executor():
