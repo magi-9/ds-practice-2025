@@ -35,10 +35,19 @@ class OrderQueueService(oq_grpc.OrderQueueServiceServicer):
 
     def RegisterExecutor(self, request, context):
         try:
+            executor_id = (request.executor_id or "").strip()
+            if not executor_id:
+                return oq_pb2.RegisterExecutorResponse(
+                    success=False,
+                    leader_id=self._leader_id,
+                    executor_token="",
+                    reason="executor_id is required",
+                )
+
             with self._lock:
                 # first executor becomes leader
                 if not self._leader_id:
-                    self._leader_id = request.executor_id
+                    self._leader_id = executor_id
                     self._leader_token = uuid4().hex
                     log.info("LEADER ELECTED: leader_id=%s", self._leader_id)
 
@@ -52,7 +61,7 @@ class OrderQueueService(oq_grpc.OrderQueueServiceServicer):
                 # others are not leader
                 log.info(
                     "EXECUTOR REGISTERED (follower): executor_id=%s leader_id=%s",
-                    request.executor_id,
+                    executor_id,
                     self._leader_id,
                 )
                 return oq_pb2.RegisterExecutorResponse(
@@ -113,7 +122,6 @@ class OrderQueueService(oq_grpc.OrderQueueServiceServicer):
                 if not self._leader_token:
                     return oq_pb2.DequeueResponse(
                         success=False,
-                        order=None,
                         dequeue_id="",
                         reason="No leader elected yet"
                     )
@@ -127,7 +135,6 @@ class OrderQueueService(oq_grpc.OrderQueueServiceServicer):
                     )
                     return oq_pb2.DequeueResponse(
                         success=False,
-                        order=None,
                         dequeue_id="",
                         reason="Not leader"
                     )
@@ -135,7 +142,6 @@ class OrderQueueService(oq_grpc.OrderQueueServiceServicer):
                 if len(self._queue) == 0:
                     return oq_pb2.DequeueResponse(
                         success=False,
-                        order=None,
                         dequeue_id="",
                         reason="Queue is empty"
                     )
@@ -163,7 +169,6 @@ class OrderQueueService(oq_grpc.OrderQueueServiceServicer):
             log.error("DEQUEUE ERROR: executor_id=%s error=%s", request.executor_id, e)
             return oq_pb2.DequeueResponse(
                 success=False,
-                order=None,
                 dequeue_id="",
                 reason=f"Dequeue failed: {str(e)}"
             )

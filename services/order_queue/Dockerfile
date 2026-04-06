@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.11
 
 WORKDIR /app
 
@@ -10,4 +10,4 @@ COPY services/order_queue/src/order_queue/ src/order_queue/
 
 COPY services/order_queue/src src/
 
-CMD ["python", "src/app.py"]
+CMD python utils/other/hotreload.py "services/order_queue/src/app.py"
