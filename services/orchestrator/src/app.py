@@ -4,6 +4,7 @@ import json
 import grpc
 import logging
 import uuid
+import time
 
 from concurrent.futures import ThreadPoolExecutor
 
@@ -27,6 +28,8 @@ from transaction_verification import transaction_verification_pb2 as tv_pb2
 from transaction_verification import transaction_verification_pb2_grpc as tv_grpc
 from suggestions import suggestions_pb2 as sg_pb2
 from suggestions import suggestions_pb2_grpc as sg_grpc
+from order_queue import order_queue_pb2 as oq_pb2
+from order_queue import order_queue_pb2_grpc as oq_grpc
 
 # Flask app setup 
 app = Flask(__name__)
@@ -507,6 +510,47 @@ def checkout():
         if not f_success:
             clear_all_services(order_id, vc, request_id)
             return jsonify({"orderId": order_id, "status": "Order Rejected", "suggestedBooks": []}), 200
+
+        # Enqueue for execution if all validation passed
+        try:
+            with grpc.insecure_channel("order_queue:50054") as channel:
+                stub = oq_grpc.OrderQueueServiceStub(channel)
+                order_pb = oq_pb2.Order(
+                    order_id=order_id,
+                    order_json=json.dumps(request_data),
+                    timestamp=int(time.time() * 1000)
+                )
+                enqueue_req = oq_pb2.EnqueueRequest(order=order_pb)
+                enqueue_resp = stub.Enqueue(enqueue_req, timeout=3)
+                
+                if not enqueue_resp.success:
+                    log.error("[%s] Enqueue failed: %s", request_id, enqueue_resp.reason)
+                    clear_all_services(order_id, vc, request_id)
+                    return jsonify({
+                        "orderId": order_id,
+                        "status": "Order Approved But Queue Failed",
+                        "suggestedBooks": books
+                    }), 500
+                
+                log.info("[%s] Order enqueued successfully: %s", request_id, enqueue_resp.queue_position)
+        
+        except grpc.RpcError as e:
+            log.error("[%s] Enqueue gRPC error: code=%s details=%s", request_id, e.code(), e.details())
+            clear_all_services(order_id, vc, request_id)
+            return jsonify({
+                "orderId": order_id,
+                "status": "Service Unavailable",
+                "suggestedBooks": []
+            }), 503
+        
+        except Exception as e:
+            log.error("[%s] Unexpected enqueue error: %s", request_id, e)
+            clear_all_services(order_id, vc, request_id)
+            return jsonify({
+                "orderId": order_id,
+                "status": "Service Error",
+                "suggestedBooks": []
+            }), 500
 
         clear_all_services(order_id, vc, request_id)
         return jsonify({"orderId": order_id, "status": "Order Approved", "suggestedBooks": books}), 200

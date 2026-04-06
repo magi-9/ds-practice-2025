@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package order_queue;
+
+service OrderQueueService {
+  rpc Enqueue (EnqueueRequest) returns (EnqueueResponse);
+  rpc Dequeue (DequeueRequest) returns (DequeueResponse);
+  rpc GetQueueSize (GetQueueSizeRequest) returns (GetQueueSizeResponse);
+  rpc PeekOrder (PeekOrderRequest) returns (PeekOrderResponse);
+  rpc RegisterExecutor (RegisterExecutorRequest) returns (RegisterExecutorResponse);
+  rpc GetLeader (GetLeaderRequest) returns (GetLeaderResponse);
+}
+
+message Order {
+  string order_id = 1;
+  string order_json = 2;
+  int64 timestamp = 3;
+}
+
+message EnqueueRequest {
+  Order order = 1;
+}
+
+message EnqueueResponse {
+  bool success = 1;
+  string queue_position = 2;
+  string reason = 3;
+}
+
+message DequeueRequest {
+  string executor_id = 1;
+  string executor_token = 2;
+}
+
+message DequeueResponse {
+  bool success = 1;
+  Order order = 2;
+  string dequeue_id = 3;
+  string reason = 4;
+}
+
+message GetQueueSizeRequest {}
+
+message GetQueueSizeResponse {
+  int32 queue_size = 1;
+}
+
+message PeekOrderRequest {
+  int32 position = 1;
+}
+
+message PeekOrderResponse {
+  Order order = 1;
+  bool exists = 2;
+}
+
+message RegisterExecutorRequest {
+  string executor_id = 1;
+}
+
+message RegisterExecutorResponse {
+  bool success = 1;
+  string leader_id = 2;
+  string executor_token = 3; // only non-empty for leader
+  string reason = 4;
+}
+
+message GetLeaderRequest {}
+
+message GetLeaderResponse {
+  string leader_id = 1;
+}
