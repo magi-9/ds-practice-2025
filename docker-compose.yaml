@@ -87,3 +87,17 @@ services:
       - order_queue
     deploy:
       replicas: 2
+  payment:
+    build:
+      context: ./
+      dockerfile: ./services/payment/Dockerfile
+    ports:
+      - 50055:50055
+    environment:
+      - PYTHONUNBUFFERED=TRUE
+      - PYTHONFILE=/app/services/payment/src/app.py
+      - PAYMENT_PORT=50055
+    volumes:
+      - ./utils:/app/utils
+      - ./services/payment/src:/app/services/payment/src
+      - ./services/payment/tests:/app/services/payment/tests

@@ -20,12 +20,22 @@ docker compose up
 
 This will start the system with the multiple services. Each service will be restarted automatically when you make changes to the code, so you don't have to restart the system manually while developing. If you want to know how the services are started and configured, check the `docker-compose.yaml` file.
 
+For Checkpoint 3, the project includes a `payment` gRPC service (port `50055`) that can participate in distributed commitment flows with `Prepare`, `Commit`, and `Abort` operations.
+
 The checkpoint evaluations will be done using the code that is started with Docker Compose, so make sure that your code works with Docker Compose.
 
 If, for some reason, changes to the code are not reflected, try to force rebuilding the Docker images with the following command:
 
 ```bash
 docker compose up --build
+```
+
+### Run focused tests
+
+To run the payment participant unit tests:
+
+```bash
+python -m pytest services/payment/tests/test_payment.py -q
 ```
 
 ### Run the code locally
