@@ -12,7 +12,8 @@ import grpc
 from concurrent import futures
 
 # Import proto
-pb_root = os.path.dirname(__file__)
+FILE = __file__ if '__file__' in globals() else os.getenv("PYTHONFILE", "")
+pb_root = os.path.abspath(os.path.join(FILE, "../../../../utils/pb"))
 sys.path.insert(0, pb_root)
 
 import order_queue.order_queue_pb2 as oq_pb2
