@@ -3,6 +3,7 @@ import os
 import logging
 import time
 from uuid import uuid4
+import json
 
 import grpc
 
@@ -14,6 +15,8 @@ import order_queue.order_queue_pb2 as oq_pb2
 import order_queue.order_queue_pb2_grpc as oq_grpc
 import payment.payment_pb2 as pay_pb2
 import payment.payment_pb2_grpc as pay_grpc
+import books_database.books_database_pb2 as db_pb2
+import books_database.books_database_pb2_grpc as db_grpc
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,6 +24,7 @@ logging.basicConfig(
 )
 log = logging.getLogger("order_executor")
 
+DB_HOST = os.getenv("DB_HOST", "books_database_primary:50056")
 QUEUE_HOST = os.getenv("QUEUE_HOST", "order_queue:50054")
 PAYMENT_HOST = os.getenv("PAYMENT_HOST", "payment:50055")
 EXECUTOR_ID = os.getenv("EXECUTOR_ID", f"executor-{uuid4().hex[:8]}")
@@ -34,10 +38,11 @@ def safe_abort(payment_stub, tx_id, reason):
 
 
 class ExecutorService:
-    def __init__(self, executor_id, queue_stub, payment_stub):
+    def __init__(self, executor_id, queue_stub, payment_stub, db_stub):
         self.executor_id = executor_id
         self.queue_stub = queue_stub
         self.payment_stub = payment_stub
+        self.db_stub = db_stub
         self.leader_id = None
         self.executor_token = None
 
@@ -136,6 +141,23 @@ class ExecutorService:
                             response.dequeue_id,
                             tx_id,
                         )
+                        try:
+                            order_json = json.loads(response.order.order_json)
+                            items = order_json.get("items", [])
+                            for item in items:
+                                title = item.get("name", "")
+                                quantity = item.get("quantity", 1)
+                                read_resp = self.db_stub.Read(db_pb2.ReadRequest(title=title), timeout=3)
+                                if read_resp.found:
+                                    new_stock = max(0, read_resp.stock - quantity)
+                                    self.db_stub.Write(
+                                        db_pb2.WriteRequest(title=title, new_stock=new_stock),timeout=3)
+                                    log.info(
+                                        "databse update! title=%s old_stock=%d new_stock=%d", title, read_resp.stock, new_stock)
+                                else:
+                                    log.warning("book not found! title=%s", title)
+                        except Exception as e:
+                            log.warning("Databse update failed %s", e)
                         idle_ticks = 0
                     else:
                         idle_ticks += 1
@@ -161,7 +183,10 @@ def launch_executor():
     queue_stub = oq_grpc.OrderQueueServiceStub(queue_channel)
     payment_stub = pay_grpc.PaymentServiceStub(payment_channel)
 
-    svc = ExecutorService(EXECUTOR_ID, queue_stub, payment_stub)
+    db_channel = grpc.insecure_channel(DB_HOST)
+    db_stub = db_grpc.BooksDatabaseStub(db_channel)
+
+    svc = ExecutorService(EXECUTOR_ID, queue_stub, payment_stub, db_stub)
     svc.start_leader_election()
     svc.run()
 
