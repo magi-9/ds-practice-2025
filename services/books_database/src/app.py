@@ -52,7 +52,7 @@ class BooksDatabaseServicer(books_grpc.BooksDatabaseServicer):
         with self._lock:
             stock = self.store.get(request.title, 0)
             found = request.title in self.store
-            log.info("Read title=%s", request.title)
+            log.info("READ title=%s found=%s stock=%d", request.title, found, stock)
             return books_pb2.ReadResponse(stock=stock, found=found, reason="OK" if found else "Not found")
 
     def Write(self, request, context):
@@ -61,8 +61,9 @@ class BooksDatabaseServicer(books_grpc.BooksDatabaseServicer):
             return
 
         with self._lock:
+            old_stock = self.store.get(request.title)
             self.store[request.title] = request.new_stock
-            log.info("backup write title=%s", request.title)
+            log.info("BACKUP_WRITE title=%s old_stock=%s new_stock=%d", request.title, old_stock, request.new_stock)
         return books_pb2.WriteResponse(success=True, reason="OK")
 
     def Prepare(self, request, context):
@@ -97,7 +98,7 @@ class BooksDatabaseServicer(books_grpc.BooksDatabaseServicer):
                     reason="Prepared and ready to commit",
                 )
                 log.info(
-                    "2PC_PREPARE tx_id=%s title=%s old_stock=%d new_stock=%d vote=COMMIT",
+                    "2PC_PREPARE tx_id=%s title=%s old_stock=%d new_stock=%d vote=COMMIT state=PREPARED",
                     tx_id,
                     title,
                     old_stock,
@@ -111,11 +112,13 @@ class BooksDatabaseServicer(books_grpc.BooksDatabaseServicer):
 
             if existing.state == books_pb2.DB_STATE_PREPARED:
                 if existing.title == title and existing.new_stock == request.new_stock:
+                    log.info("2PC_PREPARE tx_id=%s title=%s vote=YES state=ALREADY_PREPARED", tx_id, title)
                     return books_pb2.PrepareResponse(
                         vote_commit=True,
                         reason="Already prepared",
                         participant_state=books_pb2.DB_STATE_PREPARED,
                     )
+                log.warning("2PC_PREPARE tx_id=%s title=%s vote=NO reason=different_payload", tx_id, title)
                 return books_pb2.PrepareResponse(
                     vote_commit=False,
                     reason="transaction_id already used with different payload",
@@ -123,6 +126,7 @@ class BooksDatabaseServicer(books_grpc.BooksDatabaseServicer):
                 )
 
             if existing.state == books_pb2.DB_STATE_COMMITTED:
+                log.info("2PC_PREPARE tx_id=%s title=%s vote=NO state=COMMITTED", tx_id, title)
                 return books_pb2.PrepareResponse(
                     vote_commit=False,
                     reason="Transaction already committed",
@@ -130,6 +134,7 @@ class BooksDatabaseServicer(books_grpc.BooksDatabaseServicer):
                 )
 
             if existing.state == books_pb2.DB_STATE_ABORTED:
+                log.info("2PC_PREPARE tx_id=%s title=%s vote=NO state=ABORTED", tx_id, title)
                 return books_pb2.PrepareResponse(
                     vote_commit=False,
                     reason="Transaction already aborted",
@@ -172,7 +177,7 @@ class BooksDatabaseServicer(books_grpc.BooksDatabaseServicer):
                 )
 
             if state.state != books_pb2.DB_STATE_PREPARED:
-                log.warning("2PC_COMMIT tx_id=%s state=%d invalid", tx_id, state.state)
+                log.warning("2PC_COMMIT tx_id=%s title=%s state=%d invalid", tx_id, state.title, state.state)
                 return books_pb2.CommitResponse(
                     committed=False,
                     reason=f"Transaction not in prepared state (state={state.state})",
@@ -185,7 +190,7 @@ class BooksDatabaseServicer(books_grpc.BooksDatabaseServicer):
             state.reason = "Committed"
 
             log.info(
-                "2PC_COMMIT tx_id=%s title=%s applied: %d -> %d",
+                "2PC_COMMIT tx_id=%s title=%s applied old_stock=%d new_stock=%d",
                 tx_id,
                 state.title,
                 state.old_stock,
@@ -239,7 +244,7 @@ class BooksDatabaseServicer(books_grpc.BooksDatabaseServicer):
             state.state = books_pb2.DB_STATE_ABORTED
             state.reason = abort_reason
 
-            log.info("2PC_ABORT tx_id=%s title=%s reason=%s", tx_id, state.title, abort_reason)
+            log.info("2PC_ABORT tx_id=%s title=%s reason=%s old_stock=%d new_stock=%d", tx_id, state.title, abort_reason, state.old_stock, state.new_stock)
 
             return books_pb2.AbortResponse(
                 aborted=True,
@@ -293,6 +298,7 @@ class PrimaryReplica(BooksDatabaseServicer):
         quorum_needed = total // 2 + 1
 
         log.info("2PC_PREPARE replicating to %d backups tx_id=%s", len(self.backups), tx_id)
+        log.info("2PC_PREPARE quorum threshold tx_id=%s required=%d", tx_id, quorum_needed)
         
         for i, backup in enumerate(self.backups):
             try:
@@ -335,6 +341,7 @@ class PrimaryReplica(BooksDatabaseServicer):
         
         if com_resp.committed:
             # Replicate Commit to backups
+            log.info("2PC_COMMIT replicating tx_id=%s to %d backups", tx_id, len(self.backups))
             for i, backup in enumerate(self.backups):
                 try:
                     backup.Commit(request, timeout=3)
@@ -350,6 +357,7 @@ class PrimaryReplica(BooksDatabaseServicer):
         tx_id = (request.transaction_id or "").strip()
         
         # Replicate Abort to backups first
+        log.info("2PC_ABORT replicating tx_id=%s to %d backups", tx_id, len(self.backups))
         for i, backup in enumerate(self.backups):
             try:
                 backup.Abort(request, timeout=3)

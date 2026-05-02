@@ -239,7 +239,13 @@ class ExecutorService:
                             continue
 
                         # Execute 2PC
-                        self.execute_2pc(order_id, response, tx_id, items)
+                        result = self.execute_2pc(order_id, response, tx_id, items)
+                        log.info(
+                            "2PC END tx=%s order=%s outcome=%s",
+                            tx_id,
+                            order_id,
+                            "COMMIT" if result else "ABORT",
+                        )
                         idle_ticks = 0
                     else:
                         idle_ticks += 1
