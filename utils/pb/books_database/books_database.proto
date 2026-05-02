@@ -4,6 +4,20 @@ package books_database;
 service BooksDatabase {
   rpc Read (ReadRequest) returns (ReadResponse);
   rpc Write (WriteRequest) returns (WriteResponse);
+  
+  // 2PC participant endpoints
+  rpc Prepare (PrepareRequest) returns (PrepareResponse);
+  rpc Commit (CommitRequest) returns (CommitResponse);
+  rpc Abort (AbortRequest) returns (AbortResponse);
+  rpc GetTransactionStatus (GetTransactionStatusRequest) returns (GetTransactionStatusResponse);
+}
+
+enum DatabaseParticipantState {
+  DB_STATE_UNKNOWN = 0;
+  DB_STATE_PREPARED = 1;
+  DB_STATE_COMMITTED = 2;
+  DB_STATE_ABORTED = 3;
+  DB_STATE_MISSING = 4;
 }
 
 message ReadRequest {
@@ -24,4 +38,47 @@ message WriteRequest {
 message WriteResponse {
   bool success = 1;
   string reason = 2;
+}
+
+message PrepareRequest {
+  string transaction_id = 1;
+  string title = 2;
+  int32 new_stock = 3;
+}
+
+message PrepareResponse {
+  bool vote_commit = 1;
+  string reason = 2;
+  DatabaseParticipantState participant_state = 3;
+}
+
+message CommitRequest {
+  string transaction_id = 1;
+}
+
+message CommitResponse {
+  bool committed = 1;
+  string reason = 2;
+  DatabaseParticipantState participant_state = 3;
+}
+
+message AbortRequest {
+  string transaction_id = 1;
+  string reason = 2;
+}
+
+message AbortResponse {
+  bool aborted = 1;
+  string reason = 2;
+  DatabaseParticipantState participant_state = 3;
+}
+
+message GetTransactionStatusRequest {
+  string transaction_id = 1;
+}
+
+message GetTransactionStatusResponse {
+  string transaction_id = 1;
+  DatabaseParticipantState participant_state = 2;
+  string reason = 3;
 }

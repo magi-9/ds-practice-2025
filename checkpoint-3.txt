@@ -1,0 +1,89 @@
+Seminar 10: Consistency and the Database Module
+Goal: Explore consistency in distributed systems, with a focus on designing a robust database module.
+
+Introduction
+In Session 10 of our Distributed Systems course, we shift our focus to implementing the database system within our distributed architecture. With the election mechanism in place for mutual exclusion, enabling the creation of the order execution layer, we now address the crucial services required for actual order execution, including the database, payments service, notifications, etc... Given the anticipated high system load, we prioritize a distributed database solution with replication, for ensuring reliability and availability. However, this introduces consistency challenges that demand attention. Our goal is to design a distributed database system that maintains consistency while ensuring robust performance under demanding conditions.
+
+The focus of this entire Checkpoint will be on the order execution tasks. If you have already accomplished the required functionalities for the order validation tasks, feel free to comment out the code and docker-compose configuration of previous services, namely the code within the orchestrator that triggers the fraud-detection, books-suggestions, and transaction-verification services, as well as the specification of these services within docker-compose. For development and testing purposes, we will create only valid orders entering the queue and being executed. Later in the final Checkpoint, we will again connect the entire set of services.
+
+In this task, you should now think of designing and implementing a distributed database system with two basic operations: Read and Write. This database should be a Key-Value database that will simply store the stocks of our available books, the key being the title and the value being the stock. Our main focus is the database functionality, not the design of the database model, but you are free to expand it with more information such as the price per book and other data points you may consider relevant. This database system should be replicated to ensure better reliability and availability, but you must come with a strategy for achieving the best possible level of consistency. Here are the concrete tasks:
+
+Task
+Extend your system with the following functionality and new services:
+
+Books Database: Create a new gRPC service - the books database - which will have two atomic operations, Read and Write:
+Replication: This service should be replicated, at least 3 times, meaning, there should be at least 3 instances of the database running at every moment. These instances may implement and run the same code, which internally should consist of a basic key-value structure. The gRPC interface, however, should allow for Read and Write operations across the whole distributed database system, abstracting from the client process (the one querying the database) the fact that it’s a distributed database. For that, we need to employ a consistency protocol.
+This figure shows an example of a simple gRPC interface with Read and Write operations for a distributed key-value store. Abstracts away the internal replication and consistency mechanisms:
+
+
+Consistency: Explore the different strategies for consistency protocols or consensus mechanisms learned in the lectures, choose one that suits some minimum consistency levels, e.g. sequential consistency, and proceed with the implementation. Examples are Primary-based protocols, State-machine Replication, or Chain Replication. There is no right or wrong approach, but be aware of the trade-offs of your design decisions, especially related to trading between consistency and availability, the read/write loads on specific parts of the database system, or the fault-tolerance of the protocol, among other considerations.
+This figure shows the example of the Primary-backup mechanism. A base class handles local reads and writes. The primary replica extends it to push updates to backups. Robustness can be improved with acknowledgments and retries:
+
+
+Order Executor: The executor services, for each order, should update the database system by performing a series of Reads and Writes, e.g. to read the current value of the stock of a book and calculate and write its new value into the database.
+This figure shows how the order execution layer interacts with the books database: read stock, validate, and write the updated value:
+
+
+Bonus Points: How do we deal with concurrent writes by different clients? Think of a solution for the problem of two simultaneous orders trying to update the stocks of the same book.
+
+
+
+
+eminar 11: Distributed Commitment
+Goal: Expand the scope of your project by establishing distributed transactions through commitment protocols.
+
+Introduction
+In Session 11 of our Distributed Systems course, we delve into the critical concept of distributed commitment, a fundamental aspect for ensuring the integrity and reliability of our distributed system. As we progress with the execution of orders within our online bookstore scenario, we encounter the necessity for certain services, such as the payment system, notification service, and database, to commit to the execution of each order. This means that transactions must either succeed entirely and their changes are committed, or they fail without any side effects. Additionally, in cases where a transaction updates data on multiple nodes, it becomes imperative that either all nodes commit their changes or all must abort. Moreover, should any node experience a failure or crash, it is essential that the entire transaction is aborted to maintain consistency across the system.
+
+You'll devise a distributed commitment mechanism to ensure the execution of orders across various services. Your task is to make the executor service to coordinate and ensure commitment over each order, among multiple components like the payments service, notification system, and database module. They must commit to their operations over each order, ensuring data consistency and integrity. Through your design and implementation, you should also navigate the complexities of distributed transactions to achieve a robust order execution workflow. Here are the concrete tasks:
+
+Task
+Extend your system with the following functionality and new services:
+
+New Services: Create one new dummy gRPC service - for instance, the payment system. This service does not need any custom logic apart from the distributed commitment protocol described below. You may implement some dummy logic for their service operations (payment execution). This service doesn’t need to be replicated, meaning, we only need one instance of it.
+This skeleton simulates a payment service with Prepare, Commit, and Abort operations. It doesn’t do real processing, but enables participation in 2PC or 3PC coordination:
+
+
+Commitment: Add the functionality in the executor service, in the database module, and in your new payment system, to establish a commitment protocol of your choice, f.e., 2PC, 3PC, or other. The executor service should act as the coordinator and the other two services should be the participants. Implement and study the trade-offs of your commitment protocol, especially related to the amount of phases, messages exchanged, and probability of blocking in specific phases.
+This shows the database acting as a 2PC participant, staging updates during Prepare, then applying them on Commit or discarding them on Abort:
+
+
+Execution: The goal is to make the participant services to commit to their operations over each order. Find a way to encapsulate these operations within the distributed commitment protocol, meaning, after the last commit message is received from the coordinator, these services should execute their operations, i.e., the payment system should execute the payment (dummy operation) and the database should update the data (operation as in the last practice session).
+This function encapsulates the logic for Two-Phase Commit (2PC) from the perspective of the executor (acting as coordinator). It polls each service in Phase 1, then decides to Commit or Abort:
+
+
+Bonus Points: How do we deal with failing participants? Think of a solution for the problem of recovering from failing participants, in specific phases of your commitment protocol. Devise and test a mechanism for simple recoveries in one of the services.
+Bonus Points: What about failure of the coordinator? Analyse the system and try to understand what are the consequences of a failing coordinator, during the execution of the commitment protocol. Think of a solution for this issue. No implementation is needed, but the points will only be awarded upon good analysis, justification, and solution.
+
+
+
+Seminar 13: Checkpoint #3 - Evaluation and Protocol Analysis
+Goal: Assess the integration of components, conduct some testing, and evaluate the overall functionality of your distributed protocols.
+
+Introduction
+In Session 13, we reach another milestone with Checkpoint #3, a concise 10-15 minute evaluation per group. This checkpoint serves as an opportunity for you to showcase the progress of your distributed system project through a demonstration and discussion.
+
+Task
+As we approach Checkpoint #3, it's crucial to finalize your distributed system implementation, document key aspects, ensure smooth deployment, add system logs, and provide clarity through version tagging and comprehensive diagrams. These are the concrete tasks for this week:
+
+Finish the implementation: Complete the remaining tasks in your distributed system project, ensuring all functionalities align with the concepts covered in the sessions.
+Document Relevant Code: Provide concise and informative documentation for crucial sections of your code, aiding in understanding and evaluation.
+Docker Setup: Verify that your services can be spun up seamlessly using Docker and Docker Compose. Confirm they connect with the provided frontend or other client software to showcase the desired functionality.
+Add System Logs: Implement relevant system logs within your application to offer insights into the functioning and interactions of different components.
+Commit Changes to Repository: Commit the latest changes to your project repository, keeping it up-to-date and facilitating a smooth evaluation process.
+Create "checkpoint-3" Tag: Add a version tag "checkpoint-3" to mark this stage of your project in the repository, allowing for easy reference and tracking.
+Diagrams: Create visual documentation for your project by developing concise and informative diagrams.
+Consistency Protocol diagram: represent the choice of your consistency protocol for the database module in a diagram. Label your replicas, the executor, and the operations between them. See the lecture slides for examples of possible drawings.
+Distributed Commitment Protocol diagram: based on the protocol of your choice and your system setup, illustrate the protocol operations/messages in a diagram or sequence of pictures (2, 3 pictures in a sequence are enough). See the lecture slides for examples of possible illustrations.
+Schedule: Choose your team slot for the evaluation time here. Please only come on your officially registered seminar group!
+Evaluation
+During the Checkpoint #3 evaluation, each group will have 10-15 minutes to showcase their distributed system project. Be prepared to provide a demonstration, displaying the proper functionality of your system. Emphasize the implementation of system logs to offer insights into your project's inner workings. Additionally, represent your design decisions using diagrams, providing a visual guide for a more comprehensive understanding of your distributed system. This evaluation aims to assess your progress, offer constructive feedback, and ensure alignment with the distributed system principles covered in the course. You may only enter the room in the assigned time slot. Make sure to have at least one laptop with your solution ready to be demoed and with the codebase and diagrams ready to be displayed.
+
+Distribution of points
+3 - Consistency protocol and the database module.
+3 - Distributed Commitment protocol and the new service.
+1 - Logging.
+1 - Project organization, documentation, collaboration, and other factors...
+1 - Consistency Protocol diagram.
+1 - Distributed Commitment Protocol diagram.
+Total: 10 points + 3 bonus points (1 points for each of the bonus tasks in the Consistency Protocols and Commitment Protocols sessions.)

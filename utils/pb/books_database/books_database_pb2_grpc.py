@@ -44,6 +44,26 @@ class BooksDatabaseStub(object):
                 request_serializer=books__database_dot_books__database__pb2.WriteRequest.SerializeToString,
                 response_deserializer=books__database_dot_books__database__pb2.WriteResponse.FromString,
                 _registered_method=True)
+        self.Prepare = channel.unary_unary(
+                '/books_database.BooksDatabase/Prepare',
+                request_serializer=books__database_dot_books__database__pb2.PrepareRequest.SerializeToString,
+                response_deserializer=books__database_dot_books__database__pb2.PrepareResponse.FromString,
+                _registered_method=True)
+        self.Commit = channel.unary_unary(
+                '/books_database.BooksDatabase/Commit',
+                request_serializer=books__database_dot_books__database__pb2.CommitRequest.SerializeToString,
+                response_deserializer=books__database_dot_books__database__pb2.CommitResponse.FromString,
+                _registered_method=True)
+        self.Abort = channel.unary_unary(
+                '/books_database.BooksDatabase/Abort',
+                request_serializer=books__database_dot_books__database__pb2.AbortRequest.SerializeToString,
+                response_deserializer=books__database_dot_books__database__pb2.AbortResponse.FromString,
+                _registered_method=True)
+        self.GetTransactionStatus = channel.unary_unary(
+                '/books_database.BooksDatabase/GetTransactionStatus',
+                request_serializer=books__database_dot_books__database__pb2.GetTransactionStatusRequest.SerializeToString,
+                response_deserializer=books__database_dot_books__database__pb2.GetTransactionStatusResponse.FromString,
+                _registered_method=True)
 
 
 class BooksDatabaseServicer(object):
@@ -61,6 +81,31 @@ class BooksDatabaseServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def Prepare(self, request, context):
+        """2PC participant endpoints
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Commit(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Abort(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetTransactionStatus(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_BooksDatabaseServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -73,6 +118,26 @@ def add_BooksDatabaseServicer_to_server(servicer, server):
                     servicer.Write,
                     request_deserializer=books__database_dot_books__database__pb2.WriteRequest.FromString,
                     response_serializer=books__database_dot_books__database__pb2.WriteResponse.SerializeToString,
+            ),
+            'Prepare': grpc.unary_unary_rpc_method_handler(
+                    servicer.Prepare,
+                    request_deserializer=books__database_dot_books__database__pb2.PrepareRequest.FromString,
+                    response_serializer=books__database_dot_books__database__pb2.PrepareResponse.SerializeToString,
+            ),
+            'Commit': grpc.unary_unary_rpc_method_handler(
+                    servicer.Commit,
+                    request_deserializer=books__database_dot_books__database__pb2.CommitRequest.FromString,
+                    response_serializer=books__database_dot_books__database__pb2.CommitResponse.SerializeToString,
+            ),
+            'Abort': grpc.unary_unary_rpc_method_handler(
+                    servicer.Abort,
+                    request_deserializer=books__database_dot_books__database__pb2.AbortRequest.FromString,
+                    response_serializer=books__database_dot_books__database__pb2.AbortResponse.SerializeToString,
+            ),
+            'GetTransactionStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetTransactionStatus,
+                    request_deserializer=books__database_dot_books__database__pb2.GetTransactionStatusRequest.FromString,
+                    response_serializer=books__database_dot_books__database__pb2.GetTransactionStatusResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -129,6 +194,114 @@ class BooksDatabase(object):
             '/books_database.BooksDatabase/Write',
             books__database_dot_books__database__pb2.WriteRequest.SerializeToString,
             books__database_dot_books__database__pb2.WriteResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Prepare(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/books_database.BooksDatabase/Prepare',
+            books__database_dot_books__database__pb2.PrepareRequest.SerializeToString,
+            books__database_dot_books__database__pb2.PrepareResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Commit(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/books_database.BooksDatabase/Commit',
+            books__database_dot_books__database__pb2.CommitRequest.SerializeToString,
+            books__database_dot_books__database__pb2.CommitResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Abort(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/books_database.BooksDatabase/Abort',
+            books__database_dot_books__database__pb2.AbortRequest.SerializeToString,
+            books__database_dot_books__database__pb2.AbortResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetTransactionStatus(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/books_database.BooksDatabase/GetTransactionStatus',
+            books__database_dot_books__database__pb2.GetTransactionStatusRequest.SerializeToString,
+            books__database_dot_books__database__pb2.GetTransactionStatusResponse.FromString,
             options,
             channel_credentials,
             insecure,
