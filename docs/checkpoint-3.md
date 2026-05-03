@@ -16,7 +16,7 @@ The database side uses a primary-replica design. The executor talks to the prima
 
 The database module uses a primary-backup replication strategy with majority quorum.
 
-### Consistency diagram
+### Consistency Protocol diagram
 #### Majority quorum reached
 
 ![Consistency Protocol Diagram](./images/success.png)
@@ -48,9 +48,7 @@ Protocol summary:
 5. If any participant votes no or times out, the executor aborts the transaction.
 6. After commit, participants execute their actual side effects.
 
-### Diagram Placeholder
-
-Insert the distributed commitment sequence diagram here.
+### Distributed Commitment Protocol diagram
 
 ![Distributed Commitment Diagram](./images/checkpoint-3-2pc-sequence-diagram.png)
 
