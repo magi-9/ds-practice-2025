@@ -17,15 +17,23 @@ The database side uses a primary-replica design. The executor talks to the prima
 The database module uses a primary-backup replication strategy with majority quorum.
 
 ### Consistency diagram
+#### Majority quorum reached
 
-![Consistency Protocol Diagram](./images/checkpoint-3-consistency-diagram.png)
-
-Suggested content for the diagram:
+![Consistency Protocol Diagram](./images/success.png)
 
 - Executor reads stock from the primary.
-- Primary sends prepare/write state to Backup 1 and Backup 2.
-- Backups acknowledge.
-- Primary commits after quorum.
+- The write is prepared on the primary and backup replicas.
+- A majority quorum (2/3) of commit votes is reached.
+- The transaction is successfully committed according to the primary backup protocol.
+
+#### Majority quorum not reached
+
+![Consistency Protocol Diagram](./images/failure.png)
+
+- Executor reads stock from the primary.
+- The write is prepared on the primary and backup replicas.
+- A majority quorum (2/3) of commit votes is NOT reached.
+- The primary decides to abort the transaction and sends the abort decision to all replicas.
 
 ## Distributed Commitment Protocol
 
@@ -45,8 +53,6 @@ Protocol summary:
 Insert the distributed commitment sequence diagram here.
 
 ![Distributed Commitment Diagram](./images/checkpoint-3-2pc-sequence-diagram.png)
-
-Suggested content for the diagram:
 
 - Executor sends prepare to payment and database.
 - Payment and database reply with vote commit or vote abort.
