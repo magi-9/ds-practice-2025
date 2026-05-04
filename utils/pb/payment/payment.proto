@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package payment;
+
+service PaymentService {
+  rpc ProcessPayment (PaymentRequest) returns (PaymentResponse);
+
+  // 2PC participant endpoints
+  rpc Prepare (PrepareRequest) returns (PrepareResponse);
+  rpc Commit (CommitRequest) returns (CommitResponse);
+  rpc Abort (AbortRequest) returns (AbortResponse);
+
+  // Diagnostics endpoint for integration tests and logs.
+  rpc GetTransactionStatus (GetTransactionStatusRequest) returns (GetTransactionStatusResponse);
+}
+
+enum PaymentParticipantState {
+  PAYMENT_STATE_UNKNOWN = 0;
+  PAYMENT_STATE_PREPARED = 1;
+  PAYMENT_STATE_COMMITTED = 2;
+  PAYMENT_STATE_ABORTED = 3;
+  PAYMENT_STATE_MISSING = 4;
+}
+
+message PaymentRequest {
+  string order_id = 1;
+  double amount = 2;
+  string currency = 3;
+  string transaction_id = 4;
+  string order_json = 5;
+}
+
+message PaymentResponse {
+  bool success = 1;
+  string reason = 2;
+  string payment_id = 3;
+}
+
+message PrepareRequest {
+  string transaction_id = 1;
+  string order_id = 2;
+  double amount = 3;
+  string currency = 4;
+}
+
+message PrepareResponse {
+  bool vote_commit = 1;
+  string reason = 2;
+  PaymentParticipantState participant_state = 3;
+}
+
+message CommitRequest {
+  string transaction_id = 1;
+}
+
+message CommitResponse {
+  bool committed = 1;
+  string reason = 2;
+  string payment_id = 3;
+  PaymentParticipantState participant_state = 4;
+}
+
+message AbortRequest {
+  string transaction_id = 1;
+  string reason = 2;
+}
+
+message AbortResponse {
+  bool aborted = 1;
+  string reason = 2;
+  PaymentParticipantState participant_state = 3;
+}
+
+message GetTransactionStatusRequest {
+  string transaction_id = 1;
+}
+
+message GetTransactionStatusResponse {
+  string transaction_id = 1;
+  PaymentParticipantState participant_state = 2;
+  string order_id = 3;
+  string payment_id = 4;
+  string reason = 5;
+}
