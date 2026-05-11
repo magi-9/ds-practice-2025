@@ -16,6 +16,8 @@ services:
     environment:
       - PYTHONUNBUFFERED=TRUE
       - PYTHONFILE=/app/services/orchestrator/src/app.py
+      - OTEL_SERVICE_NAME=orchestrator
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://observability:4318
     volumes:
       - ./utils:/app/utils
       - ./services/orchestrator/src:/app/services/orchestrator/src
@@ -142,3 +144,13 @@ services:
     volumes:
       - ./utils:/app/utils
       - ./services/books_database/src:/app/services/books_database/src
+
+  observability:
+    image: grafana/otel-lgtm
+    ports:
+      - "3000:3000"
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+      - OTEL_METRIC_EXPORT_INTERVAL=1000
+

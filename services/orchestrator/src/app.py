@@ -31,8 +31,41 @@ from suggestions import suggestions_pb2_grpc as sg_grpc
 from order_queue import order_queue_pb2 as oq_pb2
 from order_queue import order_queue_pb2_grpc as oq_grpc
 
+
+from opentelemetry import trace, metrics
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
+
+OTEL_ENDPOINT = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://observability:4318")
+
+resource = Resource.create({"service.name": os.getenv("OTEL_SERVICE_NAME", "orchestrator")})
+
+trace.set_tracer_provider(TracerProvider(resource=resource))
+trace.get_tracer_provider().add_span_processor(
+    BatchSpanProcessor(OTLPSpanExporter(endpoint=f"{OTEL_ENDPOINT}/v1/traces"))
+)
+
+metrics.set_meter_provider(
+    MeterProvider(
+        resource=resource,
+        metric_readers=[PeriodicExportingMetricReader(
+            OTLPMetricExporter(endpoint=f"{OTEL_ENDPOINT}/v1/metrics")
+        )],
+    )
+)
+
+RequestsInstrumentor().instrument()
+
 # Flask app setup 
 app = Flask(__name__)
+FlaskInstrumentor().instrument_app(app)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 
