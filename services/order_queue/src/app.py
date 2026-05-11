@@ -19,6 +19,39 @@ sys.path.insert(0, pb_root)
 import order_queue.order_queue_pb2 as oq_pb2
 import order_queue.order_queue_pb2_grpc as oq_grpc
 
+from opentelemetry import trace, metrics
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+from opentelemetry.instrumentation.grpc import GrpcInstrumentorServer
+
+OTEL_ENDPOINT = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://observability:4318")
+resource = Resource.create({"service.name": os.getenv("OTEL_SERVICE_NAME", "order_queue")})
+
+trace.set_tracer_provider(TracerProvider(resource=resource))
+trace.get_tracer_provider().add_span_processor(
+    BatchSpanProcessor(OTLPSpanExporter(endpoint=f"{OTEL_ENDPOINT}/v1/traces"))
+)
+
+metrics.set_meter_provider(
+    MeterProvider(
+        resource=resource,
+        metric_readers=[PeriodicExportingMetricReader(
+            OTLPMetricExporter(endpoint=f"{OTEL_ENDPOINT}/v1/metrics")
+        )],
+    )
+)
+
+GrpcInstrumentorServer().instrument()
+tracer = trace.get_tracer(__name__)
+meter = metrics.get_meter(__name__)
+
+queue_depth = meter.create_up_down_counter("queue_depth")
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s"
@@ -93,28 +126,17 @@ class OrderQueueService(oq_grpc.OrderQueueServiceServicer):
                 self._queue.append(order)
                 position = len(self._queue) - 1
                 queue_id = f"q-{position}-{uuid4().hex[:8]}"
+            
+            queue_depth.add(1)
 
-            log.info(
-                "ENQUEUE: order_id=%s queue_id=%s position=%d queue_size=%d",
-                order.order_id,
-                queue_id,
-                position,
-                len(self._queue),
-            )
+            log.info("ENQUEUE: order_id=%s queue_id=%s position=%d queue_size=%d",
+                     order.order_id, queue_id, position, len(self._queue))
 
-            return oq_pb2.EnqueueResponse(
-                success=True,
-                queue_position=queue_id,
-                reason="Order enqueued successfully",
-            )
+            return oq_pb2.EnqueueResponse(success=True, queue_position=queue_id, reason="Order enqueued successfully")
 
         except Exception as e:
             log.error("ENQUEUE ERROR: %s", e)
-            return oq_pb2.EnqueueResponse(
-                success=False,
-                queue_position="",
-                reason=f"Enqueue failed: {str(e)}",
-            )
+            return oq_pb2.EnqueueResponse(success=False, queue_position="", reason=f"Enqueue failed: {str(e)}")
 
     def Dequeue(self, request, context):
         try:
@@ -150,21 +172,14 @@ class OrderQueueService(oq_grpc.OrderQueueServiceServicer):
                 order = self._queue.popleft()
                 self._dequeue_count += 1
                 dequeue_id = f"d-{self._dequeue_count}-{uuid4().hex[:8]}"
+                remaining = len(self._queue)
+            
+            queue_depth.add(-1)
 
-            log.info(
-                "DEQUEUE: executor_id=%s order_id=%s dequeue_id=%s remaining=%d",
-                request.executor_id,
-                order.order_id,
-                dequeue_id,
-                len(self._queue)
-            )
+            log.info("DEQUEUE: executor_id=%s order_id=%s dequeue_id=%s remaining=%d",
+                     request.executor_id, order.order_id, dequeue_id, remaining)
 
-            return oq_pb2.DequeueResponse(
-                success=True,
-                order=order,
-                dequeue_id=dequeue_id,
-                reason="Order dequeued successfully"
-            )
+            return oq_pb2.DequeueResponse(success=True, order=order, dequeue_id=dequeue_id, reason="Order dequeued successfully")
 
         except Exception as e:
             log.error("DEQUEUE ERROR: executor_id=%s error=%s", request.executor_id, e)

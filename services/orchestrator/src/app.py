@@ -42,6 +42,8 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from opentelemetry.instrumentation.grpc import GrpcInstrumentorClient
+
 
 OTEL_ENDPOINT = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://observability:4318")
 
@@ -62,6 +64,7 @@ metrics.set_meter_provider(
 )
 
 RequestsInstrumentor().instrument()
+GrpcInstrumentorClient().instrument()
 
 # Flask app setup 
 app = Flask(__name__)
