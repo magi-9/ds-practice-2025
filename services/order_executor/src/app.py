@@ -18,6 +18,41 @@ import payment.payment_pb2_grpc as pay_grpc
 import books_database.books_database_pb2 as db_pb2
 import books_database.books_database_pb2_grpc as db_grpc
 
+from opentelemetry import trace, metrics
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+from opentelemetry.instrumentation.grpc import GrpcInstrumentorClient
+
+OTEL_ENDPOINT = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://observability:4318")
+resource = Resource.create({"service.name": os.getenv("OTEL_SERVICE_NAME", "order_executor")})
+
+trace.set_tracer_provider(TracerProvider(resource=resource))
+trace.get_tracer_provider().add_span_processor(
+    BatchSpanProcessor(OTLPSpanExporter(endpoint=f"{OTEL_ENDPOINT}/v1/traces"))
+)
+
+metrics.set_meter_provider(
+    MeterProvider(
+        resource=resource,
+        metric_readers=[PeriodicExportingMetricReader(
+            OTLPMetricExporter(endpoint=f"{OTEL_ENDPOINT}/v1/metrics")
+        )],
+    )
+)
+
+GrpcInstrumentorClient().instrument()
+tracer = trace.get_tracer(__name__)
+meter = metrics.get_meter(__name__)
+
+orders_total = meter.create_counter("orders_total")
+tx_total = meter.create_counter("tx_total")
+tx_duration_ms = meter.create_histogram("tx_duration_ms")
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s"
@@ -81,7 +116,7 @@ class ExecutorService:
         
         log.info("2PC START tx=%s order=%s with %d items", tx_id, order_id, len(items))
         
-        # === PHASE 1: PREPARE ===
+        #Phase 1: Prepare
         log.info("2PC PHASE 1 (Prepare) tx=%s", tx_id)
         
         # Prepare payment
@@ -108,8 +143,11 @@ class ExecutorService:
         # Prepare database updates
         db_prepares = []
         for item in items:
-            title = item.get("name", "")
-            quantity = item.get("quantity", 1)
+            title = (item.get("name") or "").strip()
+            try:
+                quantity = int(item.get("quantity", 1))
+            except Exception:
+                quantity = 1
             
             # Read current stock
             try:
@@ -122,7 +160,8 @@ class ExecutorService:
                     return False
                 
                 new_stock = max(0, read_resp.stock - quantity)
-                item_tx_id = f"{tx_id}_{title}"
+                safe_title = title.replace(" ", "_")
+                item_tx_id = f"{tx_id}_{safe_title}"
                 
                 # Prepare DB write
                 try:
@@ -161,7 +200,7 @@ class ExecutorService:
                 safe_abort_payment(self.payment_stub, tx_id, f"db read error: {title}")
                 return False
         
-        # === PHASE 2: COMMIT ===
+        # Phase 2: Commit 
         log.info("2PC PHASE 2 (Commit) tx=%s with %d db items", tx_id, len(db_prepares))
         
         commit_success = True
@@ -239,14 +278,24 @@ class ExecutorService:
                             continue
 
                         # Execute 2PC
-                        result = self.execute_2pc(order_id, response, tx_id, items)
-                        log.info(
-                            "2PC END tx=%s order=%s outcome=%s",
-                            tx_id,
-                            order_id,
-                            "COMMIT" if result else "ABORT",
-                        )
+                        orders_total.add(1, {"service": "order_executor"})
+                        start = time.time()
+
+                        with tracer.start_as_current_span("execute_order_2pc") as span:
+                            span.set_attribute("order_id", order_id)
+                            span.set_attribute("tx_id", tx_id)
+                            span.set_attribute("items_count", len(items))
+
+                            result = self.execute_2pc(order_id, response, tx_id, items)
+                            span.set_attribute("result", "commit" if result else "abort")
+
+                        elapsed_ms = (time.time() - start) * 1000.0
+                        tx_duration_ms.record(elapsed_ms, {"result": "commit" if result else "abort"})
+                        tx_total.add(1, {"result": "commit" if result else "abort"})
+
+                        log.info("2PC END tx=%s order=%s outcome=%s", tx_id, order_id, "COMMIT" if result else "ABORT")
                         idle_ticks = 0
+                        
                     else:
                         idle_ticks += 1
                         if idle_ticks % 10 == 1:
