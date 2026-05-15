@@ -1,0 +1,247 @@
+{
+  "info": {
+    "name": "Bookstore E2E Testing",
+    "description": "End-to-end testing for bookstore checkout system covering all test scenarios",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Single Non-Fraudulent Order",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Request-ID",
+            "value": "{{$randomUUID}}"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:8081/checkout",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "checkout"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user\": {\n    \"name\": \"John Doe\",\n    \"contact\": \"john@example.com\"\n  },\n  \"creditCard\": {\n    \"number\": \"4532015112830366\",\n    \"expirationDate\": \"12/25\",\n    \"cvv\": \"123\"\n  },\n  \"items\": [\n    {\n      \"name\": \"The Great Gatsby\",\n      \"quantity\": 1\n    }\n  ],\n  \"billingAddress\": {\n    \"street\": \"123 Main St\",\n    \"city\": \"Springfield\",\n    \"state\": \"IL\",\n    \"zip\": \"62701\",\n    \"country\": \"USA\"\n  },\n  \"shippingMethod\": \"Standard\",\n  \"giftWrapping\": false,\n  \"termsAccepted\": true\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "2. Multiple Non-Conflicting Orders (Book A)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Request-ID",
+            "value": "{{$randomUUID}}"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:8081/checkout",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "checkout"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user\": {\n    \"name\": \"Alice Smith\",\n    \"contact\": \"alice@example.com\"\n  },\n  \"creditCard\": {\n    \"number\": \"5425233010103442\",\n    \"expirationDate\": \"06/26\",\n    \"cvv\": \"456\"\n  },\n  \"items\": [\n    {\n      \"name\": \"The Great Gatsby\",\n      \"quantity\": 2\n    }\n  ],\n  \"billingAddress\": {\n    \"street\": \"456 Oak Ave\",\n    \"city\": \"Portland\",\n    \"state\": \"OR\",\n    \"zip\": \"97201\",\n    \"country\": \"USA\"\n  },\n  \"shippingMethod\": \"Express\",\n  \"giftWrapping\": true,\n  \"termsAccepted\": true\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "2. Multiple Non-Conflicting Orders (Book B)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Request-ID",
+            "value": "{{$randomUUID}}"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:8081/checkout",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "checkout"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user\": {\n    \"name\": \"Bob Johnson\",\n    \"contact\": \"bob@example.com\"\n  },\n  \"creditCard\": {\n    \"number\": \"3782822463100005\",\n    \"expirationDate\": \"03/27\",\n    \"cvv\": \"789\"\n  },\n  \"items\": [\n    {\n      \"name\": \"1984\",\n      \"quantity\": 1\n    }\n  ],\n  \"billingAddress\": {\n    \"street\": \"789 Elm St\",\n    \"city\": \"Seattle\",\n    \"state\": \"WA\",\n    \"zip\": \"98101\",\n    \"country\": \"USA\"\n  },\n  \"shippingMethod\": \"Standard\",\n  \"giftWrapping\": false,\n  \"termsAccepted\": true\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3. Fraudulent Order - Suspicious User (contains 'fraud')",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Request-ID",
+            "value": "{{$randomUUID}}"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:8081/checkout",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "checkout"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user\": {\n    \"name\": \"Fraud Attacker\",\n    \"contact\": \"attacker@example.com\"\n  },\n  \"creditCard\": {\n    \"number\": \"4916627407375983\",\n    \"expirationDate\": \"09/25\",\n    \"cvv\": \"321\"\n  },\n  \"items\": [\n    {\n      \"name\": \"The Great Gatsby\",\n      \"quantity\": 1\n    }\n  ],\n  \"billingAddress\": {\n    \"street\": \"999 Scam Blvd\",\n    \"city\": \"Somewhere\",\n    \"state\": \"XX\",\n    \"zip\": \"00000\",\n    \"country\": \"USA\"\n  },\n  \"shippingMethod\": \"Standard\",\n  \"giftWrapping\": false,\n  \"termsAccepted\": true\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3. Fraudulent Order - Invalid Card (repeated digits)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Request-ID",
+            "value": "{{$randomUUID}}"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:8081/checkout",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "checkout"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user\": {\n    \"name\": \"Charlie Brown\",\n    \"contact\": \"charlie@example.com\"\n  },\n  \"creditCard\": {\n    \"number\": \"1111111111111111\",\n    \"expirationDate\": \"12/25\",\n    \"cvv\": \"111\"\n  },\n  \"items\": [\n    {\n      \"name\": \"1984\",\n      \"quantity\": 1\n    }\n  ],\n  \"billingAddress\": {\n    \"street\": \"123 Test St\",\n    \"city\": \"TestCity\",\n    \"state\": \"TS\",\n    \"zip\": \"12345\",\n    \"country\": \"USA\"\n  },\n  \"shippingMethod\": \"Standard\",\n  \"giftWrapping\": false,\n  \"termsAccepted\": true\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "4. Conflicting Order - Same Book (Race Condition A)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Request-ID",
+            "value": "{{$randomUUID}}"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:8081/checkout",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "checkout"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user\": {\n    \"name\": \"David Lee\",\n    \"contact\": \"david@example.com\"\n  },\n  \"creditCard\": {\n    \"number\": \"6011111111111117\",\n    \"expirationDate\": \"08/26\",\n    \"cvv\": \"654\"\n  },\n  \"items\": [\n    {\n      \"name\": \"The Great Gatsby\",\n      \"quantity\": 1\n    }\n  ],\n  \"billingAddress\": {\n    \"street\": \"321 Pine Rd\",\n    \"city\": \"Denver\",\n    \"state\": \"CO\",\n    \"zip\": \"80202\",\n    \"country\": \"USA\"\n  },\n  \"shippingMethod\": \"Standard\",\n  \"giftWrapping\": false,\n  \"termsAccepted\": true\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "4. Conflicting Order - Same Book (Race Condition B)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Request-ID",
+            "value": "{{$randomUUID}}"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:8081/checkout",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "checkout"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user\": {\n    \"name\": \"Eve Wilson\",\n    \"contact\": \"eve@example.com\"\n  },\n  \"creditCard\": {\n    \"number\": \"3530111333300000\",\n    \"expirationDate\": \"11/24\",\n    \"cvv\": \"987\"\n  },\n  \"items\": [\n    {\n      \"name\": \"The Great Gatsby\",\n      \"quantity\": 1\n    }\n  ],\n  \"billingAddress\": {\n    \"street\": \"654 Birch Ln\",\n    \"city\": \"Boston\",\n    \"state\": \"MA\",\n    \"zip\": \"02101\",\n    \"country\": \"USA\"\n  },\n  \"shippingMethod\": \"Next-Day\",\n  \"giftWrapping\": true,\n  \"termsAccepted\": true\n}"
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8081"
+    },
+    {
+      "key": "book_great_gatsby",
+      "value": "The Great Gatsby"
+    },
+    {
+      "key": "book_1984",
+      "value": "1984"
+    }
+  ]
+}

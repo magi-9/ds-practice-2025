@@ -154,3 +154,17 @@ services:
     environment:
       - OTEL_METRIC_EXPORT_INTERVAL=1000
 
+  locust:
+    build:
+      context: ./
+      dockerfile: ./services/locust/Dockerfile
+    ports:
+      - "8089:8089"
+    environment:
+      - PYTHONUNBUFFERED=TRUE
+    volumes:
+      - ./services/locust/locustfile.py:/app/locustfile.py
+    depends_on:
+      - orchestrator
+    command: sh -c "sleep 10 && locust -f /app/locustfile.py --host=http://orchestrator:5000 -u 5 -r 1 --headless"
+
