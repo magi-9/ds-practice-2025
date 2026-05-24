@@ -7,3 +7,5 @@ vscode/.DS_Store
 .DS_Store
 .ipynb_checkpoints/
 **/*.pyi
+.test_results/
+checkpoint-4.txt

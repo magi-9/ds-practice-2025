@@ -31,8 +31,44 @@ from suggestions import suggestions_pb2_grpc as sg_grpc
 from order_queue import order_queue_pb2 as oq_pb2
 from order_queue import order_queue_pb2_grpc as oq_grpc
 
+
+from opentelemetry import trace, metrics
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from opentelemetry.instrumentation.grpc import GrpcInstrumentorClient
+
+
+OTEL_ENDPOINT = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://observability:4318")
+
+resource = Resource.create({"service.name": os.getenv("OTEL_SERVICE_NAME", "orchestrator")})
+
+trace.set_tracer_provider(TracerProvider(resource=resource))
+trace.get_tracer_provider().add_span_processor(
+    BatchSpanProcessor(OTLPSpanExporter(endpoint=f"{OTEL_ENDPOINT}/v1/traces"))
+)
+
+metrics.set_meter_provider(
+    MeterProvider(
+        resource=resource,
+        metric_readers=[PeriodicExportingMetricReader(
+            OTLPMetricExporter(endpoint=f"{OTEL_ENDPOINT}/v1/metrics")
+        )],
+    )
+)
+
+RequestsInstrumentor().instrument()
+GrpcInstrumentorClient().instrument()
+
 # Flask app setup 
 app = Flask(__name__)
+FlaskInstrumentor().instrument_app(app)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 
@@ -481,34 +517,40 @@ def checkout():
 
         if not a_success:
             clear_all_services(order_id, vc, request_id)
+            log.warning("[%s] DECISION_RESULT | order_id=%s | status=REJECTED | reason=VerifyItemsNonEmpty | details=%s", request_id, order_id, a_reason)
             return jsonify({"orderId": order_id, "status": "Order Rejected", "suggestedBooks": []}), 200
 
         if not b_success:
             clear_all_services(order_id, vc, request_id)
+            log.warning("[%s] DECISION_RESULT | order_id=%s | status=REJECTED | reason=VerifyUserData | details=%s", request_id, order_id, b_reason)
             return jsonify({"orderId": order_id, "status": "Order Rejected", "suggestedBooks": []}), 200
 
         # c after a
         c_success, c_reason, _, vc = tv_event(order_id, "VerifyCreditCard", vc, request_id)
         if not c_success:
             clear_all_services(order_id, vc, request_id)
+            log.warning("[%s] DECISION_RESULT | order_id=%s | status=REJECTED | reason=VerifyCreditCard | details=%s", request_id, order_id, c_reason)
             return jsonify({"orderId": order_id, "status": "Order Rejected", "suggestedBooks": []}), 200
 
         # d after b
         d_success, d_reason, _, vc = fd_event(order_id, "CheckUserFraud", vc, request_id)
         if not d_success:
             clear_all_services(order_id, vc, request_id)
+            log.warning("[%s] DECISION_RESULT | order_id=%s | status=REJECTED | reason=FRAUD_USER | details=%s", request_id, order_id, d_reason)
             return jsonify({"orderId": order_id, "status": "Order Rejected", "suggestedBooks": []}), 200
 
         # e after (c and d)
         e_success, e_reason, _, vc = fd_event(order_id, "CheckCardFraud", vc, request_id)
         if not e_success:
             clear_all_services(order_id, vc, request_id)
+            log.warning("[%s] DECISION_RESULT | order_id=%s | status=REJECTED | reason=FRAUD_CARD | details=%s", request_id, order_id, e_reason)
             return jsonify({"orderId": order_id, "status": "Order Rejected", "suggestedBooks": []}), 200
 
         # f after e
         f_success, f_reason, _, vc, books = sg_event_generate(order_id, vc, request_id)
         if not f_success:
             clear_all_services(order_id, vc, request_id)
+            log.warning("[%s] DECISION_RESULT | order_id=%s | status=REJECTED | reason=Suggestions | details=%s", request_id, order_id, f_reason)
             return jsonify({"orderId": order_id, "status": "Order Rejected", "suggestedBooks": []}), 200
 
         # Enqueue for execution if all validation passed
@@ -532,7 +574,7 @@ def checkout():
                         "suggestedBooks": books
                     }), 500
                 
-                log.info("[%s] Order enqueued successfully: %s", request_id, enqueue_resp.queue_position)
+                log.info("[%s] Order enqueued successfully: order_id=%s queue_position=%s", request_id, order_id, enqueue_resp.queue_position)
         
         except grpc.RpcError as e:
             log.error("[%s] Enqueue gRPC error: code=%s details=%s", request_id, e.code(), e.details())
@@ -553,6 +595,7 @@ def checkout():
             }), 500
 
         clear_all_services(order_id, vc, request_id)
+        log.info("[%s] DECISION_RESULT | order_id=%s | status=APPROVED | reason=AllValidationsPassed | suggested_books=%d", request_id, order_id, len(books))
         return jsonify({"orderId": order_id, "status": "Order Approved", "suggestedBooks": books}), 200
     except BackendServiceError as e:
         log.error("[%s] Event flow failed due to backend error: %s", request_id, e)

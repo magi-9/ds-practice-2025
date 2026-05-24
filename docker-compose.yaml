@@ -16,6 +16,8 @@ services:
     environment:
       - PYTHONUNBUFFERED=TRUE
       - PYTHONFILE=/app/services/orchestrator/src/app.py
+      - OTEL_SERVICE_NAME=orchestrator
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://observability:4318
     volumes:
       - ./utils:/app/utils
       - ./services/orchestrator/src:/app/services/orchestrator/src
@@ -142,3 +144,27 @@ services:
     volumes:
       - ./utils:/app/utils
       - ./services/books_database/src:/app/services/books_database/src
+
+  observability:
+    image: grafana/otel-lgtm
+    ports:
+      - "3000:3000"
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+      - OTEL_METRIC_EXPORT_INTERVAL=1000
+
+  locust:
+    build:
+      context: ./
+      dockerfile: ./services/locust/Dockerfile
+    ports:
+      - "8089:8089"
+    environment:
+      - PYTHONUNBUFFERED=TRUE
+    volumes:
+      - ./services/locust/locustfile.py:/app/locustfile.py
+    depends_on:
+      - orchestrator
+    command: sh -c "sleep 10 && locust -f /app/locustfile.py --host=http://orchestrator:5000 -u 5 -r 1 --headless"
+

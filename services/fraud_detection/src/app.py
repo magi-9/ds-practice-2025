@@ -206,8 +206,10 @@ class FraudDetectionService(fd_grpc.FraudDetectionServiceServicer):
         searchable_text = " ".join(searchable_chunks).lower()
 
         if any(token in searchable_text for token in suspicious_tokens):
+            log.warning("CheckUserFraud: FRAUD_DETECTED | tokens_matched=%s | user_name=%s", suspicious_tokens, user.get("name", "N/A"))
             return False, "Suspicious user data", {}
 
+        log.info("CheckUserFraud: PASSED | user_name=%s", user.get("name", "N/A"))
         return True, "User data looks safe", {}
 
     def _event_e_check_credit_card_for_fraud(self, order):
@@ -216,11 +218,14 @@ class FraudDetectionService(fd_grpc.FraudDetectionServiceServicer):
         sanitized_number = re.sub(r"\D", "", number)
 
         if sanitized_number and not re.fullmatch(r"\d{13,19}", sanitized_number):
+            log.warning("CheckCardFraud: FRAUD_DETECTED | reason=InvalidCardLength | card_length=%d", len(sanitized_number))
             return False, "Suspicious card number", {}
 
         if sanitized_number and len(set(sanitized_number)) == 1:
+            log.warning("CheckCardFraud: FRAUD_DETECTED | reason=RepeatedDigits | card_suffix=%s", sanitized_number[-4:] if len(sanitized_number) >= 4 else "***")
             return False, "Suspicious repeated card digits", {}
 
+        log.info("CheckCardFraud: PASSED | card_suffix=%s", sanitized_number[-4:] if len(sanitized_number) >= 4 else "***")
         return True, "Credit card data looks safe", {}
 
     def _legacy_volume_rule(self, order):
